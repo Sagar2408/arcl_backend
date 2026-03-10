@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 // Import routes
 const authRoutes = require('./routes/auth');
 const circularRoutes = require('./routes/circulars');
+const masterCirculars = require('./routes/masterCirculars');
 const dailyStatsRoutes = require('./routes/dailyStats');
 const monthlyStatsRoutes = require('./routes/monthlyStats');
 
@@ -46,6 +47,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api', authRoutes);
 app.use('/api/circulars', circularRoutes);
+app.use('/api/master-circulars', masterCirculars);
 app.use('/api/stats/daily', dailyStatsRoutes);
 app.use('/api/stats/monthly', monthlyStatsRoutes);
 app.use('/uploads', express.static('uploads'));
@@ -90,6 +92,7 @@ const startServer = async () => {
       console.log(`   - Health Check: GET http://localhost:${PORT}/health`);
       console.log(`   - Login: POST http://localhost:${PORT}/api/login`);
       console.log(`   - Circulars: GET/POST http://localhost:${PORT}/api/circulars`);
+      console.log("   - Master Circulars: GET/POST http://localhost:5000/api/master-circulars");
       console.log(`   - Daily Stats: GET/POST http://localhost:${PORT}/api/stats/daily`);
       console.log(`   - Monthly Stats: GET/POST http://localhost:${PORT}/api/stats/monthly`);
     });

@@ -34,3 +34,5 @@ coverage/
 # Database
 *.sqlite
 *.sqlite3
+
+uploads/
