@@ -18,7 +18,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security middleware
-app.use(helmet());
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+  next();
+});
 
 // CORS configuration
 app.use(cors({
@@ -44,13 +50,24 @@ app.get('/health', (req, res) => {
   });
 });
 
+
+app.use('/uploads', express.static('uploads', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.pdf')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+  }
+}));
+
 // API Routes
 app.use('/api', authRoutes);
 app.use('/api/circulars', circularRoutes);
 app.use('/api/master-circulars', masterCirculars);
 app.use('/api/stats/daily', dailyStatsRoutes);
 app.use('/api/stats/monthly', monthlyStatsRoutes);
-app.use('/uploads', express.static('uploads'));
+
 
 // 404 handler
 app.use((req, res) => {
@@ -68,14 +85,14 @@ const startServer = async () => {
   try {
     // Test database connection
     await testConnection();
-    
+
     // Sync models (use { alter: true } in development, migrations in production)
-    await sequelize.sync({ 
+    await sequelize.sync({
       alter: process.env.NODE_ENV === 'development',
       logging: false
     });
     console.log('✅ Database models synchronized');
-    
+
     // Create initial admin if specified in env
     if (process.env.INITIAL_ADMIN_USERNAME && process.env.INITIAL_ADMIN_PASSWORD) {
       const { createInitialAdmin } = require('./controllers/authController');
@@ -84,7 +101,7 @@ const startServer = async () => {
         process.env.INITIAL_ADMIN_PASSWORD
       );
     }
-    
+
     // Start server
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
@@ -96,7 +113,7 @@ const startServer = async () => {
       console.log(`   - Daily Stats: GET/POST http://localhost:${PORT}/api/stats/daily`);
       console.log(`   - Monthly Stats: GET/POST http://localhost:${PORT}/api/stats/monthly`);
     });
-    
+
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
@@ -116,6 +133,7 @@ process.on('unhandledRejection', (err) => {
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM RECEIVED. Shutting down gracefully');
   server.close(() => {
+    S
     console.log('💥 Process terminated!');
   });
 });
