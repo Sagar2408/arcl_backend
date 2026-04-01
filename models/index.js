@@ -6,6 +6,7 @@ const MasterCircular = require('./MasterCircular');
 const DailyStat = require('./DailyStat');
 const MonthlyStat = require('./MonthlyStat');
 const Newsletter = require('./newsletter'); // ✅ just require
+const Document = require('./document');
 
 const db = {
   sequelize,
@@ -15,7 +16,8 @@ const db = {
   MasterCircular,   
   DailyStat,
   MonthlyStat,
-  Newsletter
+  Newsletter,
+  Document
 };
 
 module.exports = db;
