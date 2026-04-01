@@ -13,6 +13,7 @@ const circularRoutes = require('./routes/circulars');
 const masterCirculars = require('./routes/masterCirculars');
 const dailyStatsRoutes = require('./routes/dailyStats');
 const monthlyStatsRoutes = require('./routes/monthlyStats');
+const newsletterRoutes = require("./routes/newsletters");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -67,7 +68,7 @@ app.use('/api/circulars', circularRoutes);
 app.use('/api/master-circulars', masterCirculars);
 app.use('/api/stats/daily', dailyStatsRoutes);
 app.use('/api/stats/monthly', monthlyStatsRoutes);
-
+app.use("/api/newsletters", newsletterRoutes);
 
 // 404 handler
 app.use((req, res) => {
