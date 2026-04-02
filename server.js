@@ -14,7 +14,11 @@ const masterCirculars = require('./routes/masterCirculars');
 const dailyStatsRoutes = require('./routes/dailyStats');
 const monthlyStatsRoutes = require('./routes/monthlyStats');
 const newsletterRoutes = require("./routes/newsletters");
-const documentRoutes = require('./routes/documents');
+const announcementRoutes = require('./routes/announcements');
+const investorComplaintRoutes = require('./routes/investorComplaints');
+const shareholdingPatternRoutes = require('./routes/shareholdingPatterns');
+const financialRoutes = require('./routes/financials');
+const pressReleaseRoutes = require('./routes/pressReleases');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,7 +74,11 @@ app.use('/api/master-circulars', masterCirculars);
 app.use('/api/stats/daily', dailyStatsRoutes);
 app.use('/api/stats/monthly', monthlyStatsRoutes);
 app.use("/api/newsletters", newsletterRoutes);
-app.use('/api/documents', documentRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/investor-complaints', investorComplaintRoutes);
+app.use('/api/shareholding-patterns', shareholdingPatternRoutes);
+app.use('/api/financials', financialRoutes);
+app.use('/api/press-releases', pressReleaseRoutes);
 
 
 // 404 handler
@@ -116,6 +124,11 @@ const startServer = async () => {
       console.log("   - Master Circulars: GET/POST http://localhost:5000/api/master-circulars");
       console.log(`   - Daily Stats: GET/POST http://localhost:${PORT}/api/stats/daily`);
       console.log(`   - Monthly Stats: GET/POST http://localhost:${PORT}/api/stats/monthly`);
+      console.log(`   - Announcements: GET/POST http://localhost:${PORT}/api/announcements`);
+      console.log(`   - Investor Complaints: GET/POST http://localhost:${PORT}/api/investor-complaints`);
+      console.log(`   - Shareholding Patterns: GET/POST http://localhost:${PORT}/api/shareholding-patterns`);
+      console.log(`   - Financials: GET/POST http://localhost:${PORT}/api/financials`);
+      console.log(`   - Press Releases: GET/POST http://localhost:${PORT}/api/press-releases`);
     });
 
   } catch (error) {
@@ -137,7 +150,6 @@ process.on('unhandledRejection', (err) => {
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM RECEIVED. Shutting down gracefully');
   server.close(() => {
-    S
     console.log('💥 Process terminated!');
   });
 });

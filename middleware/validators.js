@@ -38,6 +38,66 @@ const circularValidation = [
   handleValidationErrors
 ];
 
+const announcementValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const investorComplaintValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const shareholdingPatternValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const financialValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const pressReleaseValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
 const dailyStatsValidation = [
   body('trade_date')
     .trim()
@@ -81,6 +141,11 @@ const idParamValidation = [
 module.exports = {
   loginValidation,
   circularValidation,
+  announcementValidation,
+  investorComplaintValidation,
+  shareholdingPatternValidation,
+  financialValidation,
+  pressReleaseValidation,
   dailyStatsValidation,
   monthlyStatsValidation,
   idParamValidation

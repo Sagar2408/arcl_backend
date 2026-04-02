@@ -6,7 +6,12 @@ const MasterCircular = require('./MasterCircular');
 const DailyStat = require('./DailyStat');
 const MonthlyStat = require('./MonthlyStat');
 const Newsletter = require('./newsletter'); // ✅ just require
-const Document = require('./document');
+const Announcement = require('./Announcement');
+const InvestorComplaint = require('./InvestorComplaint');
+const ShareholdingPattern = require('./ShareholdingPattern');
+const Financial = require('./Financial');
+const PressRelease = require('./PressRelease');
+
 
 const db = {
   sequelize,
@@ -17,7 +22,11 @@ const db = {
   DailyStat,
   MonthlyStat,
   Newsletter,
-  Document
+  Announcement,
+  InvestorComplaint,
+  ShareholdingPattern,
+  Financial,
+  PressRelease
 };
 
 module.exports = db;
