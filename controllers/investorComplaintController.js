@@ -24,7 +24,7 @@ exports.createInvestorComplaint = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/investor-complaints/${category}/${req.file.filename}`;
+    const pdf_url = `/uploads/${req.file.path.split('uploads/')[1].replace(/\\/g, '/')}`;
 
     const complaint = await InvestorComplaint.create({
       title,

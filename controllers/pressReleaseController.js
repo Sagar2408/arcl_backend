@@ -24,7 +24,7 @@ exports.createPressRelease = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/press-release/${category}/${req.file.filename}`;
+    const pdf_url = `/uploads/${req.file.path.split('uploads/')[1].replace(/\\/g, '/')}`;
 
     const release = await PressRelease.create({
       title,

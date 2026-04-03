@@ -4,16 +4,26 @@ const fs = require('fs');
 const path = require('path');
 
 
+// 🔥 CATEGORY → FOLDER MAPPING
+const categoryFolderMap = {
+  annual_report: "Annual Report",
+  annual_return: "Annual Return",
+  financial_result: "Financial Result",
+  financial_statements: "Financial Statements",
+  newspaper_publication: "Newspaper Publication"
+};
+
+
 // CREATE FINANCIAL
 exports.createFinancial = async (req, res) => {
   try {
 
-    const { title, date, category = 'general' } = req.body;
+    const { title, date, category } = req.body;
 
-    if (!title || !date) {
+    if (!title || !date || !category) {
       return res.status(400).json({
         success: false,
-        message: "Title and date are required"
+        message: "Title, date and category are required"
       });
     }
 
@@ -24,13 +34,25 @@ exports.createFinancial = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/financials/${category}/${req.file.filename}`;
+    const folderName = categoryFolderMap[category];
+
+    if (!folderName) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category"
+      });
+    }
+
+    // ✅ SAFEST WAY (NO PATH ERROR EVER)
+    const pdf_url = `/uploads/${req.file.path
+      .split('uploads/')[1]
+      .replace(/\\/g, '/')}`;
 
     const financial = await Financial.create({
       title,
       date,
-      pdf_url,
-      category
+      category,
+      pdf_url
     });
 
     res.status(201).json({
@@ -52,9 +74,8 @@ exports.createFinancial = async (req, res) => {
 
 
 
-// GET ALL FINANCIALS (Pagination + Search)
+// GET ALL FINANCIALS
 exports.getAllFinancials = async (req, res) => {
-
   try {
 
     const { page = 1, limit = 10, search, category } = req.query;
@@ -74,15 +95,10 @@ exports.getAllFinancials = async (req, res) => {
     }
 
     const { count, rows: financials } = await Financial.findAndCountAll({
-
       where: whereClause,
-
       order: [['created_at', 'DESC']],
-
       limit: parseInt(limit),
-
       offset: parseInt(offset)
-
     });
 
     res.json({
@@ -111,11 +127,9 @@ exports.getAllFinancials = async (req, res) => {
 
 // UPDATE FINANCIAL
 exports.updateFinancial = async (req, res) => {
-
   try {
 
     const { id } = req.params;
-
     const { title, date, category } = req.body;
 
     const financial = await Financial.findByPk(id);
@@ -132,21 +146,24 @@ exports.updateFinancial = async (req, res) => {
     // If new PDF uploaded
     if (req.file) {
 
-      // Delete old PDF
+      // ✅ DELETE OLD FILE SAFELY
       const oldFilePath = path.join(__dirname, '..', financial.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
 
-      pdf_url = `/uploads/financials/${category || financial.category}/${req.file.filename}`;
+      // ✅ SAFE PATH (NO DUPLICATION BUG)
+      pdf_url = `/uploads/${req.file.path
+        .split('uploads/')[1]
+        .replace(/\\/g, '/')}`;
     }
 
     await financial.update({
       title: title || financial.title,
       date: date || financial.date,
-      pdf_url,
-      category: category || financial.category
+      category: category || financial.category,
+      pdf_url
     });
 
     res.json({
@@ -170,7 +187,6 @@ exports.updateFinancial = async (req, res) => {
 
 // DELETE FINANCIAL
 exports.deleteFinancial = async (req, res) => {
-
   try {
 
     const { id } = req.params;
@@ -184,7 +200,7 @@ exports.deleteFinancial = async (req, res) => {
       });
     }
 
-    // Delete PDF file
+    // ✅ DELETE FILE
     const filePath = path.join(__dirname, '..', financial.pdf_url);
 
     if (fs.existsSync(filePath)) {

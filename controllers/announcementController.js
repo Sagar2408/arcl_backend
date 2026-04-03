@@ -4,12 +4,17 @@ const fs = require('fs');
 const path = require('path');
 
 
+// ✅ ALLOWED CATEGORIES
+const allowedCategories = ['announcements', 'shareholders_meeting'];
+
+
 // CREATE ANNOUNCEMENT
 exports.createAnnouncement = async (req, res) => {
   try {
 
-    const { title, date, category = 'general' } = req.body;
+    let { title, date, category = 'announcements' } = req.body;
 
+    // ✅ VALIDATION
     if (!title || !date) {
       return res.status(400).json({
         success: false,
@@ -24,7 +29,18 @@ exports.createAnnouncement = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/announcements/${category}/${req.file.filename}`;
+    // ✅ VALID CATEGORY CHECK
+    if (!allowedCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category"
+      });
+    }
+
+    // ✅ SAFE PATH (NO DUPLICATION EVER)
+    const pdf_url = `/uploads/${req.file.path
+      .split('uploads/')[1]
+      .replace(/\\/g, '/')}`;
 
     const announcement = await Announcement.create({
       title,
@@ -40,30 +56,27 @@ exports.createAnnouncement = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: "Error creating announcement",
       error: error.message
     });
-
   }
 };
 
 
 
-// GET ALL ANNOUNCEMENTS (Pagination + Search)
+// GET ALL ANNOUNCEMENTS (WITH CATEGORY SUPPORT)
 exports.getAllAnnouncements = async (req, res) => {
-
   try {
 
     const { page = 1, limit = 10, search, category } = req.query;
 
     const offset = (page - 1) * limit;
-
     const whereClause = {};
 
-    if (category) {
+    // ✅ FILTER BY CATEGORY (announcements / shareholders_meeting)
+    if (category && allowedCategories.includes(category)) {
       whereClause.category = category;
     }
 
@@ -74,15 +87,10 @@ exports.getAllAnnouncements = async (req, res) => {
     }
 
     const { count, rows: announcements } = await Announcement.findAndCountAll({
-
       where: whereClause,
-
       order: [['created_at', 'DESC']],
-
       limit: parseInt(limit),
-
       offset: parseInt(offset)
-
     });
 
     res.json({
@@ -97,13 +105,11 @@ exports.getAllAnnouncements = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: "Error fetching announcements",
       error: error.message
     });
-
   }
 };
 
@@ -111,12 +117,10 @@ exports.getAllAnnouncements = async (req, res) => {
 
 // UPDATE ANNOUNCEMENT
 exports.updateAnnouncement = async (req, res) => {
-
   try {
 
     const { id } = req.params;
-
-    const { title, date, category } = req.body;
+    let { title, date, category } = req.body;
 
     const announcement = await Announcement.findByPk(id);
 
@@ -127,26 +131,37 @@ exports.updateAnnouncement = async (req, res) => {
       });
     }
 
+    // ✅ VALIDATE CATEGORY IF PROVIDED
+    if (category && !allowedCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category"
+      });
+    }
+
     let pdf_url = announcement.pdf_url;
 
     // If new PDF uploaded
     if (req.file) {
 
-      // Delete old PDF
+      // DELETE OLD FILE
       const oldFilePath = path.join(__dirname, '..', announcement.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
 
-      pdf_url = `/uploads/announcements/${category || announcement.category}/${req.file.filename}`;
+      // SAFE PATH
+      pdf_url = `/uploads/${req.file.path
+        .split('uploads/')[1]
+        .replace(/\\/g, '/')}`;
     }
 
     await announcement.update({
       title: title || announcement.title,
       date: date || announcement.date,
-      pdf_url,
-      category: category || announcement.category
+      category: category || announcement.category,
+      pdf_url
     });
 
     res.json({
@@ -156,13 +171,11 @@ exports.updateAnnouncement = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: "Error updating announcement",
       error: error.message
     });
-
   }
 };
 
@@ -170,7 +183,6 @@ exports.updateAnnouncement = async (req, res) => {
 
 // DELETE ANNOUNCEMENT
 exports.deleteAnnouncement = async (req, res) => {
-
   try {
 
     const { id } = req.params;
@@ -184,7 +196,7 @@ exports.deleteAnnouncement = async (req, res) => {
       });
     }
 
-    // Delete PDF file
+    // DELETE FILE
     const filePath = path.join(__dirname, '..', announcement.pdf_url);
 
     if (fs.existsSync(filePath)) {
@@ -199,12 +211,10 @@ exports.deleteAnnouncement = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: "Error deleting announcement",
       error: error.message
     });
-
   }
 };

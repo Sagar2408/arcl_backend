@@ -24,7 +24,7 @@ exports.createShareholdingPattern = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/shareholding-pattern/${category}/${req.file.filename}`;
+    const pdf_url = `/uploads/${req.file.path.split('uploads/')[1].replace(/\\/g, '/')}`;
 
     const pattern = await ShareholdingPattern.create({
       title,
