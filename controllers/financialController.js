@@ -44,9 +44,7 @@ exports.createFinancial = async (req, res) => {
     }
 
     // ✅ SAFEST WAY (NO PATH ERROR EVER)
-    const pdf_url = `/uploads/${req.file.path
-      .split('uploads/')[1]
-      .replace(/\\/g, '/')}`;
+    const pdf_url = `/uploads/${req.file.filename}`;
 
     const financial = await Financial.create({
       title,

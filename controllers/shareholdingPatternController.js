@@ -24,7 +24,8 @@ exports.createShareholdingPattern = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/${req.file.path.split('uploads/')[1].replace(/\\/g, '/')}`;
+    // ✅ FIXED LINE
+    const pdf_url = `/uploads/${req.file.filename}`;
 
     const pattern = await ShareholdingPattern.create({
       title,
