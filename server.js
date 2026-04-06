@@ -19,6 +19,7 @@ const investorComplaintRoutes = require('./routes/investorComplaints');
 const shareholdingPatternRoutes = require('./routes/shareholdingPatterns');
 const financialRoutes = require('./routes/financials');
 const pressReleaseRoutes = require('./routes/pressReleases');
+const shareholdersMeetingRoutes = require('./routes/shareholdersMeetings');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,7 +80,7 @@ app.use('/api/investor-complaints', investorComplaintRoutes);
 app.use('/api/shareholding-patterns', shareholdingPatternRoutes);
 app.use('/api/financials', financialRoutes);
 app.use('/api/press-releases', pressReleaseRoutes);
-
+app.use('/api/shareholders-meetings', shareholdersMeetingRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -117,18 +118,6 @@ const startServer = async () => {
     // Start server
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📚 API Documentation:`);
-      console.log(`   - Health Check: GET http://localhost:${PORT}/health`);
-      console.log(`   - Login: POST http://localhost:${PORT}/api/login`);
-      console.log(`   - Circulars: GET/POST http://localhost:${PORT}/api/circulars`);
-      console.log("   - Master Circulars: GET/POST http://localhost:5000/api/master-circulars");
-      console.log(`   - Daily Stats: GET/POST http://localhost:${PORT}/api/stats/daily`);
-      console.log(`   - Monthly Stats: GET/POST http://localhost:${PORT}/api/stats/monthly`);
-      console.log(`   - Announcements: GET/POST http://localhost:${PORT}/api/announcements`);
-      console.log(`   - Investor Complaints: GET/POST http://localhost:${PORT}/api/investor-complaints`);
-      console.log(`   - Shareholding Patterns: GET/POST http://localhost:${PORT}/api/shareholding-patterns`);
-      console.log(`   - Financials: GET/POST http://localhost:${PORT}/api/financials`);
-      console.log(`   - Press Releases: GET/POST http://localhost:${PORT}/api/press-releases`);
     });
 
   } catch (error) {

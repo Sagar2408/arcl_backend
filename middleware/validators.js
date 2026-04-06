@@ -132,6 +132,18 @@ const monthlyStatsValidation = [
   handleValidationErrors
 ];
 
+const shareholdersMeetingValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
 const idParamValidation = [
   param('id')
     .isInt({ min: 1 }).withMessage('ID must be a positive integer'),
@@ -148,5 +160,6 @@ module.exports = {
   pressReleaseValidation,
   dailyStatsValidation,
   monthlyStatsValidation,
+  shareholdersMeetingValidation, 
   idParamValidation
 };
