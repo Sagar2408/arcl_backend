@@ -8,7 +8,7 @@ const path = require('path');
 exports.createInvestorComplaint = async (req, res) => {
   try {
 
-    const { title, date, category = 'general' } = req.body;
+    const { title, date } = req.body;
 
     if (!title || !date) {
       return res.status(400).json({
@@ -24,13 +24,12 @@ exports.createInvestorComplaint = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/${req.file.path.split('uploads/')[1].replace(/\\/g, '/')}`;
+    const pdf_url = `/uploads/investor_complaints/${req.file.filename}`;
 
     const complaint = await InvestorComplaint.create({
       title,
       date,
-      pdf_url,
-      category
+      pdf_url
     });
 
     res.status(201).json({
@@ -57,15 +56,11 @@ exports.getAllInvestorComplaints = async (req, res) => {
 
   try {
 
-    const { page = 1, limit = 10, search, category } = req.query;
+    const { page = 1, limit = 10, search } = req.query;
 
     const offset = (page - 1) * limit;
 
     const whereClause = {};
-
-    if (category) {
-      whereClause.category = category;
-    }
 
     if (search) {
       whereClause.title = {
@@ -116,7 +111,7 @@ exports.updateInvestorComplaint = async (req, res) => {
 
     const { id } = req.params;
 
-    const { title, date, category } = req.body;
+    const { title, date } = req.body;
 
     const complaint = await InvestorComplaint.findByPk(id);
 
@@ -139,14 +134,13 @@ exports.updateInvestorComplaint = async (req, res) => {
         fs.unlinkSync(oldFilePath);
       }
 
-      pdf_url = `/uploads/investor-complaints/${category || complaint.category}/${req.file.filename}`;
+      pdf_url = `/uploads/investor_complaints/${req.file.filename}`;
     }
 
     await complaint.update({
       title: title || complaint.title,
       date: date || complaint.date,
-      pdf_url,
-      category: category || complaint.category
+      pdf_url
     });
 
     res.json({

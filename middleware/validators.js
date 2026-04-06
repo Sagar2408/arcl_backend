@@ -143,6 +143,91 @@ const shareholdersMeetingValidation = [
     .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
   handleValidationErrors
 ];
+const sebiValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const rbiValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const financialResultValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const annualReportValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const annualReturnValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const newspaperPublicationValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+const financialStatementValidation = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 500 }).withMessage('Title must not exceed 500 characters'),
+  body('date')
+    .trim()
+    .notEmpty().withMessage('Date is required')
+    .matches(/^\d{2}-[A-Za-z]{3}-\d{4}$/).withMessage('Date must be in format DD-MMM-YYYY (e.g., 04-Mar-2026)'),
+  handleValidationErrors
+];
+
+
 
 const idParamValidation = [
   param('id')
@@ -161,5 +246,12 @@ module.exports = {
   dailyStatsValidation,
   monthlyStatsValidation,
   shareholdersMeetingValidation, 
-  idParamValidation
+  idParamValidation,
+  sebiValidation,
+  rbiValidation,
+  financialResultValidation,
+  annualReportValidation,
+  annualReturnValidation,
+  newspaperPublicationValidation,
+  financialStatementValidation
 };

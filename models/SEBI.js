@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const Financial = sequelize.define('Financial', {
+const SEBI = sequelize.define('SEBI', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -40,15 +40,10 @@ const Financial = sequelize.define('Financial', {
         msg: 'PDF file is required'
       }
     }
-  },
-
-  category: {
-    type: DataTypes.STRING,
-    allowNull: false
   }
 
 }, {
-  tableName: 'financials',
+  tableName: 'sebi',
 
   timestamps: true,
 
@@ -66,4 +61,4 @@ const Financial = sequelize.define('Financial', {
   ]
 });
 
-module.exports = Financial;
+module.exports = SEBI;

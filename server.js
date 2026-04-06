@@ -16,10 +16,15 @@ const monthlyStatsRoutes = require('./routes/monthlyStats');
 const newsletterRoutes = require("./routes/newsletters");
 const announcementRoutes = require('./routes/announcements');
 const investorComplaintRoutes = require('./routes/investorComplaints');
-const shareholdingPatternRoutes = require('./routes/shareholdingPatterns');
-const financialRoutes = require('./routes/financials');
 const pressReleaseRoutes = require('./routes/pressReleases');
 const shareholdersMeetingRoutes = require('./routes/shareholdersMeetings');
+const sebiRoutes = require('./routes/sebi');
+const rbiRoutes = require('./routes/rbi');
+const financialResultRoutes = require('./routes/financialResults');
+const annualReportRoutes = require('./routes/annualReports');
+const annualReturnRoutes = require('./routes/annualReturns');
+const newspaperPublicationRoutes = require('./routes/newspaperPublications');
+const financialStatementRoutes = require('./routes/financialStatements');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -77,10 +82,15 @@ app.use('/api/stats/monthly', monthlyStatsRoutes);
 app.use("/api/newsletters", newsletterRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/investor-complaints', investorComplaintRoutes);
-app.use('/api/shareholding-patterns', shareholdingPatternRoutes);
-app.use('/api/financials', financialRoutes);
 app.use('/api/press-releases', pressReleaseRoutes);
 app.use('/api/shareholders-meetings', shareholdersMeetingRoutes);
+app.use('/api/sebi', sebiRoutes);
+app.use('/api/rbi', rbiRoutes);
+app.use('/api/financial-results', financialResultRoutes);
+app.use('/api/annual-reports', annualReportRoutes);
+app.use('/api/annual-returns', annualReturnRoutes);
+app.use('/api/newspaper-publications', newspaperPublicationRoutes);
+app.use('/api/financial-statements', financialStatementRoutes);
 
 // 404 handler
 app.use((req, res) => {

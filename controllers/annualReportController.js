@@ -1,11 +1,11 @@
-const { PressRelease } = require('../models');
+const { AnnualReport } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
 
-// CREATE PRESS RELEASE
-exports.createPressRelease = async (req, res) => {
+// CREATE ANNUAL REPORT
+exports.createAnnualReport = async (req, res) => {
   try {
 
     const { title, date } = req.body;
@@ -24,9 +24,9 @@ exports.createPressRelease = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/press_releases/${req.file.filename}`;
+    const pdf_url = `/uploads/annual_reports/${req.file.filename}`;
 
-    const pressRelease = await PressRelease.create({
+    const annualReport = await AnnualReport.create({
       title,
       date,
       pdf_url
@@ -34,15 +34,15 @@ exports.createPressRelease = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Press release created successfully",
-      data: pressRelease
+      message: "Annual report created successfully",
+      data: annualReport
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error creating press release",
+      message: "Error creating annual report",
       error: error.message
     });
 
@@ -51,8 +51,8 @@ exports.createPressRelease = async (req, res) => {
 
 
 
-// GET ALL PRESS RELEASES (Pagination + Search)
-exports.getAllPressReleases = async (req, res) => {
+// GET ALL ANNUAL REPORTS (Pagination + Search)
+exports.getAllAnnualReports = async (req, res) => {
 
   try {
 
@@ -68,7 +68,7 @@ exports.getAllPressReleases = async (req, res) => {
       };
     }
 
-    const { count, rows: pressReleases } = await PressRelease.findAndCountAll({
+    const { count, rows: annualReports } = await AnnualReport.findAndCountAll({
 
       where: whereClause,
 
@@ -82,7 +82,7 @@ exports.getAllPressReleases = async (req, res) => {
 
     res.json({
       success: true,
-      data: pressReleases,
+      data: annualReports,
       pagination: {
         total: count,
         page: parseInt(page),
@@ -95,7 +95,7 @@ exports.getAllPressReleases = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Error fetching press releases",
+      message: "Error fetching annual reports",
       error: error.message
     });
 
@@ -104,8 +104,8 @@ exports.getAllPressReleases = async (req, res) => {
 
 
 
-// UPDATE PRESS RELEASE
-exports.updatePressRelease = async (req, res) => {
+// UPDATE ANNUAL REPORT
+exports.updateAnnualReport = async (req, res) => {
 
   try {
 
@@ -113,47 +113,47 @@ exports.updatePressRelease = async (req, res) => {
 
     const { title, date } = req.body;
 
-    const pressRelease = await PressRelease.findByPk(id);
+    const annualReport = await AnnualReport.findByPk(id);
 
-    if (!pressRelease) {
+    if (!annualReport) {
       return res.status(404).json({
         success: false,
-        message: "Press release not found"
+        message: "Annual report not found"
       });
     }
 
-    let pdf_url = pressRelease.pdf_url;
+    let pdf_url = annualReport.pdf_url;
 
     // If new PDF uploaded
     if (req.file) {
 
       // Delete old PDF
-      const oldFilePath = path.join(__dirname, '..', pressRelease.pdf_url);
+      const oldFilePath = path.join(__dirname, '..', annualReport.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
 
-      pdf_url = `/uploads/press_releases/${req.file.filename}`;
+      pdf_url = `/uploads/annual_reports/${req.file.filename}`;
     }
 
-    await pressRelease.update({
-      title: title || pressRelease.title,
-      date: date || pressRelease.date,
+    await annualReport.update({
+      title: title || annualReport.title,
+      date: date || annualReport.date,
       pdf_url
     });
 
     res.json({
       success: true,
-      message: "Press release updated successfully",
-      data: pressRelease
+      message: "Annual report updated successfully",
+      data: annualReport
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error updating press release",
+      message: "Error updating annual report",
       error: error.message
     });
 
@@ -162,41 +162,41 @@ exports.updatePressRelease = async (req, res) => {
 
 
 
-// DELETE PRESS RELEASE
-exports.deletePressRelease = async (req, res) => {
+// DELETE ANNUAL REPORT
+exports.deleteAnnualReport = async (req, res) => {
 
   try {
 
     const { id } = req.params;
 
-    const pressRelease = await PressRelease.findByPk(id);
+    const annualReport = await AnnualReport.findByPk(id);
 
-    if (!pressRelease) {
+    if (!annualReport) {
       return res.status(404).json({
         success: false,
-        message: "Press release not found"
+        message: "Annual report not found"
       });
     }
 
     // Delete PDF file
-    const filePath = path.join(__dirname, '..', pressRelease.pdf_url);
+    const filePath = path.join(__dirname, '..', annualReport.pdf_url);
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 
-    await pressRelease.destroy();
+    await annualReport.destroy();
 
     res.json({
       success: true,
-      message: "Press release deleted successfully"
+      message: "Annual report deleted successfully"
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error deleting press release",
+      message: "Error deleting annual report",
       error: error.message
     });
 

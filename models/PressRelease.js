@@ -40,11 +40,6 @@ const PressRelease = sequelize.define('PressRelease', {
         msg: 'PDF file is required'
       }
     }
-  },
-
-  category: {
-    type: DataTypes.STRING,
-    allowNull: false
   }
 
 }, {

@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-const InvestorComplaint = sequelize.define('InvestorComplaint', {
+const FinancialStatement = sequelize.define('FinancialStatement', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -43,7 +43,7 @@ const InvestorComplaint = sequelize.define('InvestorComplaint', {
   }
 
 }, {
-  tableName: 'investor_complaints',
+  tableName: 'financial_statements',
 
   timestamps: true,
 
@@ -61,4 +61,4 @@ const InvestorComplaint = sequelize.define('InvestorComplaint', {
   ]
 });
 
-module.exports = InvestorComplaint;
+module.exports = FinancialStatement;

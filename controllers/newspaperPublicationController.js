@@ -1,11 +1,11 @@
-const { PressRelease } = require('../models');
+const { NewspaperPublication } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
 
-// CREATE PRESS RELEASE
-exports.createPressRelease = async (req, res) => {
+// CREATE NEWSPAPER PUBLICATION
+exports.createNewspaperPublication = async (req, res) => {
   try {
 
     const { title, date } = req.body;
@@ -24,9 +24,9 @@ exports.createPressRelease = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/press_releases/${req.file.filename}`;
+    const pdf_url = `/uploads/newspaper_publications/${req.file.filename}`;
 
-    const pressRelease = await PressRelease.create({
+    const newspaperPublication = await NewspaperPublication.create({
       title,
       date,
       pdf_url
@@ -34,15 +34,15 @@ exports.createPressRelease = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Press release created successfully",
-      data: pressRelease
+      message: "Newspaper publication created successfully",
+      data: newspaperPublication
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error creating press release",
+      message: "Error creating newspaper publication",
       error: error.message
     });
 
@@ -51,8 +51,8 @@ exports.createPressRelease = async (req, res) => {
 
 
 
-// GET ALL PRESS RELEASES (Pagination + Search)
-exports.getAllPressReleases = async (req, res) => {
+// GET ALL NEWSPAPER PUBLICATIONS (Pagination + Search)
+exports.getAllNewspaperPublications = async (req, res) => {
 
   try {
 
@@ -68,7 +68,7 @@ exports.getAllPressReleases = async (req, res) => {
       };
     }
 
-    const { count, rows: pressReleases } = await PressRelease.findAndCountAll({
+    const { count, rows: newspaperPublications } = await NewspaperPublication.findAndCountAll({
 
       where: whereClause,
 
@@ -82,7 +82,7 @@ exports.getAllPressReleases = async (req, res) => {
 
     res.json({
       success: true,
-      data: pressReleases,
+      data: newspaperPublications,
       pagination: {
         total: count,
         page: parseInt(page),
@@ -95,7 +95,7 @@ exports.getAllPressReleases = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Error fetching press releases",
+      message: "Error fetching newspaper publications",
       error: error.message
     });
 
@@ -104,8 +104,8 @@ exports.getAllPressReleases = async (req, res) => {
 
 
 
-// UPDATE PRESS RELEASE
-exports.updatePressRelease = async (req, res) => {
+// UPDATE NEWSPAPER PUBLICATION
+exports.updateNewspaperPublication = async (req, res) => {
 
   try {
 
@@ -113,47 +113,47 @@ exports.updatePressRelease = async (req, res) => {
 
     const { title, date } = req.body;
 
-    const pressRelease = await PressRelease.findByPk(id);
+    const newspaperPublication = await NewspaperPublication.findByPk(id);
 
-    if (!pressRelease) {
+    if (!newspaperPublication) {
       return res.status(404).json({
         success: false,
-        message: "Press release not found"
+        message: "Newspaper publication not found"
       });
     }
 
-    let pdf_url = pressRelease.pdf_url;
+    let pdf_url = newspaperPublication.pdf_url;
 
     // If new PDF uploaded
     if (req.file) {
 
       // Delete old PDF
-      const oldFilePath = path.join(__dirname, '..', pressRelease.pdf_url);
+      const oldFilePath = path.join(__dirname, '..', newspaperPublication.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
 
-      pdf_url = `/uploads/press_releases/${req.file.filename}`;
+      pdf_url = `/uploads/newspaper_publications/${req.file.filename}`;
     }
 
-    await pressRelease.update({
-      title: title || pressRelease.title,
-      date: date || pressRelease.date,
+    await newspaperPublication.update({
+      title: title || newspaperPublication.title,
+      date: date || newspaperPublication.date,
       pdf_url
     });
 
     res.json({
       success: true,
-      message: "Press release updated successfully",
-      data: pressRelease
+      message: "Newspaper publication updated successfully",
+      data: newspaperPublication
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error updating press release",
+      message: "Error updating newspaper publication",
       error: error.message
     });
 
@@ -162,41 +162,41 @@ exports.updatePressRelease = async (req, res) => {
 
 
 
-// DELETE PRESS RELEASE
-exports.deletePressRelease = async (req, res) => {
+// DELETE NEWSPAPER PUBLICATION
+exports.deleteNewspaperPublication = async (req, res) => {
 
   try {
 
     const { id } = req.params;
 
-    const pressRelease = await PressRelease.findByPk(id);
+    const newspaperPublication = await NewspaperPublication.findByPk(id);
 
-    if (!pressRelease) {
+    if (!newspaperPublication) {
       return res.status(404).json({
         success: false,
-        message: "Press release not found"
+        message: "Newspaper publication not found"
       });
     }
 
     // Delete PDF file
-    const filePath = path.join(__dirname, '..', pressRelease.pdf_url);
+    const filePath = path.join(__dirname, '..', newspaperPublication.pdf_url);
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 
-    await pressRelease.destroy();
+    await newspaperPublication.destroy();
 
     res.json({
       success: true,
-      message: "Press release deleted successfully"
+      message: "Newspaper publication deleted successfully"
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error deleting press release",
+      message: "Error deleting newspaper publication",
       error: error.message
     });
 

@@ -1,11 +1,11 @@
-const { PressRelease } = require('../models');
+const { SEBI } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
 
-// CREATE PRESS RELEASE
-exports.createPressRelease = async (req, res) => {
+// CREATE SEBI
+exports.createSEBI = async (req, res) => {
   try {
 
     const { title, date } = req.body;
@@ -24,9 +24,9 @@ exports.createPressRelease = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/press_releases/${req.file.filename}`;
+    const pdf_url = `/uploads/sebi/${req.file.filename}`;
 
-    const pressRelease = await PressRelease.create({
+    const sebi = await SEBI.create({
       title,
       date,
       pdf_url
@@ -34,15 +34,15 @@ exports.createPressRelease = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Press release created successfully",
-      data: pressRelease
+      message: "SEBI created successfully",
+      data: sebi
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error creating press release",
+      message: "Error creating SEBI",
       error: error.message
     });
 
@@ -51,8 +51,8 @@ exports.createPressRelease = async (req, res) => {
 
 
 
-// GET ALL PRESS RELEASES (Pagination + Search)
-exports.getAllPressReleases = async (req, res) => {
+// GET ALL SEBI (Pagination + Search)
+exports.getAllSEBI = async (req, res) => {
 
   try {
 
@@ -68,7 +68,7 @@ exports.getAllPressReleases = async (req, res) => {
       };
     }
 
-    const { count, rows: pressReleases } = await PressRelease.findAndCountAll({
+    const { count, rows: sebi } = await SEBI.findAndCountAll({
 
       where: whereClause,
 
@@ -82,7 +82,7 @@ exports.getAllPressReleases = async (req, res) => {
 
     res.json({
       success: true,
-      data: pressReleases,
+      data: sebi,
       pagination: {
         total: count,
         page: parseInt(page),
@@ -95,7 +95,7 @@ exports.getAllPressReleases = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Error fetching press releases",
+      message: "Error fetching SEBI",
       error: error.message
     });
 
@@ -104,8 +104,8 @@ exports.getAllPressReleases = async (req, res) => {
 
 
 
-// UPDATE PRESS RELEASE
-exports.updatePressRelease = async (req, res) => {
+// UPDATE SEBI
+exports.updateSEBI = async (req, res) => {
 
   try {
 
@@ -113,47 +113,47 @@ exports.updatePressRelease = async (req, res) => {
 
     const { title, date } = req.body;
 
-    const pressRelease = await PressRelease.findByPk(id);
+    const sebi = await SEBI.findByPk(id);
 
-    if (!pressRelease) {
+    if (!sebi) {
       return res.status(404).json({
         success: false,
-        message: "Press release not found"
+        message: "SEBI not found"
       });
     }
 
-    let pdf_url = pressRelease.pdf_url;
+    let pdf_url = sebi.pdf_url;
 
     // If new PDF uploaded
     if (req.file) {
 
       // Delete old PDF
-      const oldFilePath = path.join(__dirname, '..', pressRelease.pdf_url);
+      const oldFilePath = path.join(__dirname, '..', sebi.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
 
-      pdf_url = `/uploads/press_releases/${req.file.filename}`;
+      pdf_url = `/uploads/sebi/${req.file.filename}`;
     }
 
-    await pressRelease.update({
-      title: title || pressRelease.title,
-      date: date || pressRelease.date,
+    await sebi.update({
+      title: title || sebi.title,
+      date: date || sebi.date,
       pdf_url
     });
 
     res.json({
       success: true,
-      message: "Press release updated successfully",
-      data: pressRelease
+      message: "SEBI updated successfully",
+      data: sebi
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error updating press release",
+      message: "Error updating SEBI",
       error: error.message
     });
 
@@ -162,41 +162,41 @@ exports.updatePressRelease = async (req, res) => {
 
 
 
-// DELETE PRESS RELEASE
-exports.deletePressRelease = async (req, res) => {
+// DELETE SEBI
+exports.deleteSEBI = async (req, res) => {
 
   try {
 
     const { id } = req.params;
 
-    const pressRelease = await PressRelease.findByPk(id);
+    const sebi = await SEBI.findByPk(id);
 
-    if (!pressRelease) {
+    if (!sebi) {
       return res.status(404).json({
         success: false,
-        message: "Press release not found"
+        message: "SEBI not found"
       });
     }
 
     // Delete PDF file
-    const filePath = path.join(__dirname, '..', pressRelease.pdf_url);
+    const filePath = path.join(__dirname, '..', sebi.pdf_url);
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 
-    await pressRelease.destroy();
+    await sebi.destroy();
 
     res.json({
       success: true,
-      message: "Press release deleted successfully"
+      message: "SEBI deleted successfully"
     });
 
   } catch (error) {
 
     res.status(500).json({
       success: false,
-      message: "Error deleting press release",
+      message: "Error deleting SEBI",
       error: error.message
     });
 

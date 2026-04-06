@@ -12,12 +12,7 @@ if (!fs.existsSync(uploadPath)) {
 // Storage config
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const category = req.body.category || 'general';
-    const subfolder = path.join(__dirname, '../uploads/investor-complaints', category);
-    if (!fs.existsSync(subfolder)) {
-      fs.mkdirSync(subfolder, { recursive: true });
-    }
-    cb(null, subfolder);
+    cb(null, uploadPath);
   },
 
   filename: function (req, file, cb) {
