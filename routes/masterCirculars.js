@@ -3,7 +3,7 @@ const router = express.Router();
 
 const masterCircularController = require('../controllers/masterCircularController');
 
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 
 const { circularValidation, idParamValidation } = require('../middleware/validators');
 

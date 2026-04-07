@@ -4,11 +4,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { testConnection } = require('./config/database');
-const { sequelize } = require('./models');
+const { sequelize, User } = require('./models');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import routes
-const authRoutes = require('./routes/auth');
 const circularRoutes = require('./routes/circulars');
 const masterCirculars = require('./routes/masterCirculars');
 const dailyStatsRoutes = require('./routes/dailyStats');
@@ -25,6 +24,9 @@ const annualReportRoutes = require('./routes/annualReports');
 const annualReturnRoutes = require('./routes/annualReturns');
 const newspaperPublicationRoutes = require('./routes/newspaperPublications');
 const financialStatementRoutes = require('./routes/financialStatements');
+const userRoutes = require('./routes/users');
+const auditRoutes = require('./routes/audit');
+const deleteRequestRoutes = require('./routes/deleteRequests');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,7 +64,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-
 app.use('/uploads', express.static('uploads', {
   setHeaders: (res, path) => {
     if (path.endsWith('.pdf')) {
@@ -74,7 +75,6 @@ app.use('/uploads', express.static('uploads', {
 }));
 
 // API Routes
-app.use('/api', authRoutes);
 app.use('/api/circulars', circularRoutes);
 app.use('/api/master-circulars', masterCirculars);
 app.use('/api/stats/daily', dailyStatsRoutes);
@@ -91,6 +91,9 @@ app.use('/api/annual-reports', annualReportRoutes);
 app.use('/api/annual-returns', annualReturnRoutes);
 app.use('/api/newspaper-publications', newspaperPublicationRoutes);
 app.use('/api/financial-statements', financialStatementRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/delete-requests', deleteRequestRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -109,25 +112,45 @@ const startServer = async () => {
     // Test database connection
     await testConnection();
 
-    // Sync models (use { alter: true } in development, migrations in production)
+    // ⚠️ WARNING: force: true drops ALL tables and recreates them
+    // This will DELETE ALL EXISTING DATA - use only once
     await sequelize.sync({
-      alter: process.env.NODE_ENV === 'development',
+      alter: process.env.NODE_ENV === 'development',  // ✅ Safe mode
       logging: false
     });
-    console.log('✅ Database models synchronized');
+    console.log('✅ Database models synchronized (force: true)');
 
-    // Create initial admin if specified in env
-    if (process.env.INITIAL_ADMIN_USERNAME && process.env.INITIAL_ADMIN_PASSWORD) {
-      const { createInitialAdmin } = require('./controllers/authController');
-      await createInitialAdmin(
-        process.env.INITIAL_ADMIN_USERNAME,
-        process.env.INITIAL_ADMIN_PASSWORD
-      );
+    // 🌱 Create initial Super Admin
+    const existingSuperAdmin = await User.findOne({
+      where: { username: 'superadmin' }
+    });
+
+    if (!existingSuperAdmin) {
+      await User.create({
+        username: 'superadmin',
+        password: 'admin123',
+        role: 'super_admin',
+        is_active: true
+      });
+
+      console.log('');
+      console.log('🌱 INITIAL SUPER ADMIN CREATED:');
+      console.log('   Username: superadmin');
+      console.log('   Password: admin123');
+      console.log('');
     }
 
     // Start server
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log('');
+      console.log('⚠️  DATABASE WAS RESET - ALL DATA CLEARED');
+      console.log('');
+      console.log('📚 API Endpoints:');
+      console.log(`   - Login: POST http://localhost:${PORT}/api/users/login`);
+      console.log(`   - Create User: POST http://localhost:${PORT}/api/users`);
+      console.log('');
+      console.log('🔴 IMPORTANT: Stop server and change force: true to alter: true now!');
     });
 
   } catch (error) {

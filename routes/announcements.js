@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const announcementController = require('../controllers/announcementController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { announcementValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadAnnouncement');
 

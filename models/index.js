@@ -1,6 +1,5 @@
 const { sequelize } = require('../config/database');
 
-const Admin = require('./Admin');
 const Circular = require('./Circular');
 const MasterCircular = require('./MasterCircular');
 const DailyStat = require('./DailyStat');
@@ -18,13 +17,54 @@ const AnnualReport = require('./AnnualReport');
 const AnnualReturn = require('./AnnualReturn');
 const NewspaperPublication = require('./NewspaperPublication');
 const FinancialStatement = require('./FinancialStatement');
+const User = require('./User');
+const Permission = require('./Permission');
+const AuditTrail = require('./AuditTrail');
+const DeleteRequest = require('./DeleteRequest');
 
+// ✅ =====================
+// 🔗 DEFINE ASSOCIATIONS
+// ✅ =====================
 
+// One User → Many Permissions
+User.hasMany(Permission, {
+  foreignKey: 'user_id',
+  as: 'permissions'
+});
+
+// Each Permission belongs to one User
+Permission.belongsTo(User, {
+  foreignKey: 'user_id'
+});
+
+// (Optional but good practice)
+// User → AuditTrail
+User.hasMany(AuditTrail, {
+  foreignKey: 'user_id'
+});
+
+AuditTrail.belongsTo(User, {
+  foreignKey: 'user_id'
+});
+
+// User → DeleteRequest
+User.hasMany(DeleteRequest, {
+  foreignKey: 'requested_by'
+});
+
+DeleteRequest.belongsTo(User, {
+  foreignKey: 'requested_by'
+});
+
+// ======================
 
 const db = {
   sequelize,
   Sequelize: require('sequelize'),
-  Admin,
+  User,
+  Permission,
+  AuditTrail,
+  DeleteRequest,
   Circular,
   MasterCircular,
   DailyStat,

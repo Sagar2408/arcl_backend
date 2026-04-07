@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const circularController = require('../controllers/circularController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { circularValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadCircular');
 

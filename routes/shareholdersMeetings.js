@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const shareholdersMeetingController = require('../controllers/shareholdersMeetingController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { shareholdersMeetingValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadShareholdersMeeting');
 

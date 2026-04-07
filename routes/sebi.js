@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const sebiController = require('../controllers/sebiController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { sebiValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadSEBI');
 

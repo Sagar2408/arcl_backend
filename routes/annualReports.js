@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const annualReportController = require('../controllers/annualReportController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { annualReportValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadAnnualReport');
 

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const pressReleaseController = require('../controllers/pressReleaseController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { pressReleaseValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadPressRelease');
 

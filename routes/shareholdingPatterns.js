@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const shareholdingPatternController = require('../controllers/shareholdingPatternController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { shareholdingPatternValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadShareholdingPattern');
 

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const investorComplaintController = require('../controllers/investorComplaintController');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { investorComplaintValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadInvestorComplaint');
 
