@@ -6,17 +6,28 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { rbiValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadRBI');
 
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', rbiController.getAllRBI);
+
+// ================= PROTECTED ROUTES =================
+
+// Get all RBI data (VIEW)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('rbi', 'view'),
+  rbiController.getAllRBI
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create RBI
 router.post(
   '/',
   authMiddleware,
+  checkPermission('rbi', 'create'),
   upload.single('pdf'),
   rbiValidation,
   rbiController.createRBI
@@ -27,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('rbi', 'update'),
   upload.single('pdf'),
   idParamValidation,
   rbiController.updateRBI
@@ -37,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('rbi', 'delete'),
   idParamValidation,
   rbiController.deleteRBI
 );

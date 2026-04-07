@@ -164,8 +164,14 @@ exports.updateCircular = async (req, res) => {
 
 // DELETE CIRCULAR
 exports.deleteCircular = async (req, res) => {
-
   try {
+    // 🔥 BLOCK EXECUTIVE DIRECT DELETE
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot delete directly. Raise a delete request."
+      });
+    }
 
     const { id } = req.params;
 
@@ -178,13 +184,25 @@ exports.deleteCircular = async (req, res) => {
       });
     }
 
-    // Delete PDF file
-    const filePath = path.join(__dirname, '..', circular.pdf_url);
+    // 🔥 SAFE FILE PATH FIX
+    const filePath = path.join(
+      __dirname,
+      '..',
+      'uploads',
+      'circulars',
+      path.basename(circular.pdf_url || '')
+    );
 
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // 🔥 SAFE FILE DELETE
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileErr) {
+      console.error("File delete error:", fileErr);
     }
 
+    // 🔥 DELETE RECORD
     await circular.destroy();
 
     res.json({
@@ -193,12 +211,11 @@ exports.deleteCircular = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Delete Circular Error:", error);
 
     res.status(500).json({
       success: false,
-      message: "Error deleting circular",
-      error: error.message
+      message: "Error deleting circular"
     });
-
   }
 };

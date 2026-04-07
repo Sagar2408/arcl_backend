@@ -6,17 +6,28 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { investorComplaintValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadInvestorComplaint');
 
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', investorComplaintController.getAllInvestorComplaints);
+
+// ================= PROTECTED ROUTES =================
+
+// Get all investor complaints (VIEW)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('investor_complaints', 'view'),
+  investorComplaintController.getAllInvestorComplaints
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create investor complaint
 router.post(
   '/',
   authMiddleware,
+  checkPermission('investor_complaints', 'create'),
   upload.single('pdf'),
   investorComplaintValidation,
   investorComplaintController.createInvestorComplaint
@@ -27,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('investor_complaints', 'update'),
   upload.single('pdf'),
   idParamValidation,
   investorComplaintController.updateInvestorComplaint
@@ -37,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('investor_complaints', 'delete'),
   idParamValidation,
   investorComplaintController.deleteInvestorComplaint
 );

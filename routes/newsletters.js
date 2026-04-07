@@ -8,21 +8,50 @@ const {
   deleteNewsletter,
 } = require("../controllers/newsletterController");
 
-// ✅ Use separate upload middleware
+// ✅ Middlewares
+const authMiddleware = require("../middleware/authMiddleware");
+const { checkPermission } = require("../middleware/permissionMiddleware");
 const upload = require("../middleware/uploadNewsletter");
 
-// ================= ROUTES =================
+
+// ================= PROTECTED ROUTES =================
+
+// 📥 Get All Newsletters (VIEW)
+router.get(
+  "/",
+  authMiddleware,
+  checkPermission("newsletter", "view"),
+  getAllNewsletters
+);
+
 
 // ➕ Create Newsletter
-router.post("/", upload.single("pdf"), createNewsletter);
+router.post(
+  "/",
+  authMiddleware,
+  checkPermission("newsletter", "create"),
+  upload.single("pdf"),
+  createNewsletter
+);
 
-// 📥 Get All Newsletters
-router.get("/", getAllNewsletters);
 
 // ✏️ Update Newsletter
-router.put("/:id", upload.single("pdf"), updateNewsletter);
+router.put(
+  "/:id",
+  authMiddleware,
+  checkPermission("newsletter", "update"),
+  upload.single("pdf"),
+  updateNewsletter
+);
+
 
 // ❌ Delete Newsletter
-router.delete("/:id", deleteNewsletter);
+router.delete(
+  "/:id",
+  authMiddleware,
+  checkPermission("newsletter", "delete"),
+  deleteNewsletter
+);
+
 
 module.exports = router;

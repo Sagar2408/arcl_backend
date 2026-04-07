@@ -6,17 +6,28 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { announcementValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadAnnouncement');
 
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', announcementController.getAllAnnouncements);
+
+// ================= PROTECTED ROUTES =================
+
+// Get all announcements (VIEW)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('announcements', 'view'),
+  announcementController.getAllAnnouncements
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create announcement
 router.post(
   '/',
   authMiddleware,
+  checkPermission('announcements', 'create'),
   upload.single('pdf'),
   announcementValidation,
   announcementController.createAnnouncement
@@ -27,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('announcements', 'update'),
   upload.single('pdf'),
   idParamValidation,
   announcementController.updateAnnouncement
@@ -37,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('announcements', 'delete'),
   idParamValidation,
   announcementController.deleteAnnouncement
 );

@@ -2,24 +2,32 @@ const express = require('express');
 const router = express.Router();
 
 const masterCircularController = require('../controllers/masterCircularController');
-
 const authMiddleware = require('../middleware/authMiddleware');
-
 const { circularValidation, idParamValidation } = require('../middleware/validators');
-
 const upload = require('../middleware/uploadMasterCircular');
 
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', masterCircularController.getAllMasterCirculars);
+
+// ================= PROTECTED ROUTE =================
+
+// Get all master circulars (view permission)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('master_circulars', 'view'),
+  masterCircularController.getAllMasterCirculars
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create master circular
 router.post(
   '/',
   authMiddleware,
+  checkPermission('master_circulars', 'create'),
   upload.single('pdf'),
   circularValidation,
   masterCircularController.createMasterCircular
@@ -30,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('master_circulars', 'update'),
   upload.single('pdf'),
   idParamValidation,
   masterCircularController.updateMasterCircular
@@ -40,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('master_circulars', 'delete'),
   idParamValidation,
   masterCircularController.deleteMasterCircular
 );

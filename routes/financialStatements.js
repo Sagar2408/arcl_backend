@@ -6,17 +6,28 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { financialStatementValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadFinancialStatement');
 
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', financialStatementController.getAllFinancialStatements);
+
+// ================= PROTECTED ROUTES =================
+
+// Get all financial statements (VIEW)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('financial_statements', 'view'),
+  financialStatementController.getAllFinancialStatements
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create financial statement
 router.post(
   '/',
   authMiddleware,
+  checkPermission('financial_statements', 'create'),
   upload.single('pdf'),
   financialStatementValidation,
   financialStatementController.createFinancialStatement
@@ -27,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('financial_statements', 'update'),
   upload.single('pdf'),
   idParamValidation,
   financialStatementController.updateFinancialStatement
@@ -37,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('financial_statements', 'delete'),
   idParamValidation,
   financialStatementController.deleteFinancialStatement
 );

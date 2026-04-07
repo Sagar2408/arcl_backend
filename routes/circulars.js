@@ -6,17 +6,28 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { circularValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadCircular');
 
+// ✅ FIXED IMPORT (IMPORTANT)
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', circularController.getAllCirculars);
+
+// ================= PUBLIC / PROTECTED ROUTE =================
+
+// Get all circulars (requires login + view permission)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('circulars', 'view'),
+  circularController.getAllCirculars
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create circular
 router.post(
   '/',
   authMiddleware,
+  checkPermission('circulars', 'create'),
   upload.single('pdf'),
   circularValidation,
   circularController.createCircular
@@ -27,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('circulars', 'update'),
   upload.single('pdf'),
   idParamValidation,
   circularController.updateCircular
@@ -37,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('circulars', 'delete'),
   idParamValidation,
   circularController.deleteCircular
 );

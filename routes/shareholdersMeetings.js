@@ -6,17 +6,28 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { shareholdersMeetingValidation, idParamValidation } = require('../middleware/validators');
 const upload = require('../middleware/uploadShareholdersMeeting');
 
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// PUBLIC ROUTE
-router.get('/', shareholdersMeetingController.getAllShareholdersMeetings);
+
+// ================= PROTECTED ROUTES =================
+
+// Get all shareholders meetings (VIEW)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('shareholders_meetings', 'view'),
+  shareholdersMeetingController.getAllShareholdersMeetings
+);
 
 
-// ADMIN ROUTES
+// ================= ADMIN ROUTES =================
 
 // Create shareholders meeting
 router.post(
   '/',
   authMiddleware,
+  checkPermission('shareholders_meetings', 'create'),
   upload.single('pdf'),
   shareholdersMeetingValidation,
   shareholdersMeetingController.createShareholdersMeeting
@@ -27,6 +38,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  checkPermission('shareholders_meetings', 'update'),
   upload.single('pdf'),
   idParamValidation,
   shareholdersMeetingController.updateShareholdersMeeting
@@ -37,6 +49,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  checkPermission('shareholders_meetings', 'delete'),
   idParamValidation,
   shareholdersMeetingController.deleteShareholdersMeeting
 );

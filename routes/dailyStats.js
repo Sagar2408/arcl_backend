@@ -1,15 +1,55 @@
 const express = require('express');
 const router = express.Router();
+
 const dailyStatsController = require('../controllers/dailyStatsController');
 const authMiddleware = require('../middleware/authMiddleware');
 const { dailyStatsValidation, idParamValidation } = require('../middleware/validators');
 
-// Public routes
-router.get('/', dailyStatsController.getAllDailyStats);
+// ✅ ADD THIS
+const { checkPermission } = require('../middleware/permissionMiddleware');
 
-// Protected routes (Admin only)
-router.post('/', authMiddleware, dailyStatsValidation, dailyStatsController.createDailyStat);
-router.put('/:id', authMiddleware, idParamValidation, dailyStatsController.updateDailyStat);
-router.delete('/:id', authMiddleware, idParamValidation, dailyStatsController.deleteDailyStat);
+
+// ================= PROTECTED ROUTES =================
+
+// Get all daily stats (view permission)
+router.get(
+  '/',
+  authMiddleware,
+  checkPermission('daily_stats', 'view'),
+  dailyStatsController.getAllDailyStats
+);
+
+
+// ================= ADMIN ROUTES =================
+
+// Create daily stat
+router.post(
+  '/',
+  authMiddleware,
+  checkPermission('daily_stats', 'create'),
+  dailyStatsValidation,
+  dailyStatsController.createDailyStat
+);
+
+
+// Update daily stat
+router.put(
+  '/:id',
+  authMiddleware,
+  checkPermission('daily_stats', 'update'),
+  idParamValidation,
+  dailyStatsController.updateDailyStat
+);
+
+
+// Delete daily stat
+router.delete(
+  '/:id',
+  authMiddleware,
+  checkPermission('daily_stats', 'delete'),
+  idParamValidation,
+  dailyStatsController.deleteDailyStat
+);
+
 
 module.exports = router;
