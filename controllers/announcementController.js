@@ -37,10 +37,8 @@ exports.createAnnouncement = async (req, res) => {
       });
     }
 
-    // ✅ SAFE PATH (NO DUPLICATION EVER)
-    const pdf_url = `/uploads/${req.file.path
-      .split('uploads/')[1]
-      .replace(/\\/g, '/')}`;
+    // ✅ SAFE FILE PATH (BEST PRACTICE)
+    const pdf_url = `/uploads/${req.file.filename}`;
 
     const announcement = await Announcement.create({
       title,
@@ -56,6 +54,8 @@ exports.createAnnouncement = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("CREATE ANNOUNCEMENT ERROR:", error); // ✅ debug
+
     res.status(500).json({
       success: false,
       message: "Error creating announcement",
