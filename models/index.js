@@ -22,10 +22,6 @@ const Permission = require('./Permission');
 const AuditTrail = require('./AuditTrail');
 const DeleteRequest = require('./DeleteRequest');
 
-// ✅ =====================
-// 🔗 DEFINE ASSOCIATIONS
-// ✅ =====================
-
 // One User → Many Permissions
 User.hasMany(Permission, {
   foreignKey: 'user_id',
@@ -52,11 +48,24 @@ User.hasMany(DeleteRequest, {
   foreignKey: 'requested_by'
 });
 
+// Requested by (Executive)
 DeleteRequest.belongsTo(User, {
-  foreignKey: 'requested_by'
+  foreignKey: 'requested_by',
+  as: 'requester'
 });
 
-// ======================
+// Reviewed by (Admin)
+DeleteRequest.belongsTo(User, {
+  foreignKey: 'reviewed_by',
+  as: 'reviewer'
+});
+
+// Reverse relation (optional but best)
+User.hasMany(DeleteRequest, {
+  foreignKey: 'requested_by',
+  as: 'deleteRequests'
+});
+
 
 const db = {
   sequelize,

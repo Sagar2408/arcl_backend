@@ -1,20 +1,62 @@
-const { DeleteRequest, User, AuditTrail, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const {
+  DeleteRequest,
+  User,
+  AuditTrail,
+  sequelize,
+  Circular,
+  MasterCircular,
+  DailyStat,
+  MonthlyStat,
+  Newsletter,
+  Announcement,
+  InvestorComplaint,
+  ShareholdingPattern,
+  PressRelease,
+  ShareholdersMeeting,
+  SEBI,
+  RBI,
+  FinancialResult,
+  AnnualReport,
+  AnnualReturn,
+  NewspaperPublication,
+  FinancialStatement
+} = require('../models');
 
-// CREATE DELETE REQUEST (Executive)
+// ==============================
+// 🔥 MODEL MAPPING (IMPORTANT)
+// ==============================
+const modelMap = {
+  user: User,
+  circulars: Circular,
+  master_circulars: MasterCircular,
+  daily_stats: DailyStat,
+  monthly_stats: MonthlyStat,
+  newsletter: Newsletter,
+  announcements: Announcement,
+  investor_complaints: InvestorComplaint,
+  shareholding: ShareholdingPattern,
+  press_release: PressRelease,
+  shareholders_meeting: ShareholdersMeeting,
+  sebi: SEBI,
+  rbi: RBI,
+  financial_result: FinancialResult,
+  annual_reports: AnnualReport,
+  annual_returns: AnnualReturn,
+  newspaper_publication: NewspaperPublication,
+  financial_statements: FinancialStatement
+};
+
+// ==============================
+// 📌 CREATE DELETE REQUEST
+// ==============================
 exports.createRequest = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const { section, record_id, record_title, reason } = req.body;
 
-    // Check if request already exists
     const existingRequest = await DeleteRequest.findOne({
-      where: {
-        section,
-        record_id,
-        status: 'pending'
-      },
+      where: { section, record_id, status: 'pending' },
       transaction
     });
 
@@ -34,7 +76,6 @@ exports.createRequest = async (req, res) => {
       reason
     }, { transaction });
 
-    // Log action
     await AuditTrail.create({
       user_id: req.user.id,
       action: 'DELETE_REQUEST',
@@ -64,22 +105,23 @@ exports.createRequest = async (req, res) => {
   }
 };
 
-// GET ALL DELETE REQUESTS (Super Admin - all, Executive - own)
+// ==============================
+// 📌 GET ALL REQUESTS
+// ==============================
 exports.getAllRequests = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
-    
+
     const whereClause = {};
-    
-    // Executive can only see their own requests
+
     if (req.user.role === 'executive') {
       whereClause.requested_by = req.user.id;
     }
-    
+
     if (status) whereClause.status = status;
 
-    const { count, rows: requests } = await DeleteRequest.findAndCountAll({
+    const { count, rows } = await DeleteRequest.findAndCountAll({
       where: whereClause,
       include: [
         { model: User, as: 'requester', attributes: ['id', 'username'] },
@@ -92,7 +134,7 @@ exports.getAllRequests = async (req, res) => {
 
     res.json({
       success: true,
-      data: requests,
+      data: rows,
       pagination: {
         total: count,
         page: parseInt(page),
@@ -110,7 +152,9 @@ exports.getAllRequests = async (req, res) => {
   }
 };
 
-// GET PENDING COUNT (for Super Admin notification badge)
+// ==============================
+// 🔔 GET PENDING COUNT
+// ==============================
 exports.getPendingCount = async (req, res) => {
   try {
     const count = await DeleteRequest.count({
@@ -131,10 +175,12 @@ exports.getPendingCount = async (req, res) => {
   }
 };
 
-// APPROVE DELETE REQUEST (Super Admin)
+// ==============================
+// ✅ APPROVE REQUEST
+// ==============================
 exports.approveRequest = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const { id } = req.params;
     const { review_note } = req.body;
@@ -160,7 +206,22 @@ exports.approveRequest = async (req, res) => {
       });
     }
 
-    // Update request
+    // 🔥 DYNAMIC DELETE LOGIC
+    const Model = modelMap[request.section];
+
+    if (!Model) {
+      throw new Error(`Invalid section: ${request.section}`);
+    }
+
+    const record = await Model.findByPk(request.record_id, { transaction });
+
+    if (!record) {
+      throw new Error('Record not found');
+    }
+
+    await record.destroy({ transaction });
+
+    // 🔥 UPDATE REQUEST
     await request.update({
       status: 'approved',
       reviewed_by: req.user.id,
@@ -168,7 +229,7 @@ exports.approveRequest = async (req, res) => {
       review_note
     }, { transaction });
 
-    // Log approval
+    // 🔥 AUDIT LOG
     await AuditTrail.create({
       user_id: req.user.id,
       action: 'DELETE_APPROVE',
@@ -177,8 +238,9 @@ exports.approveRequest = async (req, res) => {
       reason: request.reason,
       new_data: {
         approved_by: req.user.username,
-        requested_by: request.requester.username,
-        review_note
+        requested_by: request.requester?.username,
+        review_note,
+        deleted: true
       },
       ip_address: req.ip,
       user_agent: req.headers['user-agent']
@@ -188,7 +250,7 @@ exports.approveRequest = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Delete request approved. Record can now be deleted.',
+      message: 'Delete request approved and record deleted successfully',
       data: request
     });
 
@@ -202,10 +264,12 @@ exports.approveRequest = async (req, res) => {
   }
 };
 
-// REJECT DELETE REQUEST (Super Admin)
+// ==============================
+// ❌ REJECT REQUEST
+// ==============================
 exports.rejectRequest = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const { id } = req.params;
     const { review_note } = req.body;
@@ -231,7 +295,6 @@ exports.rejectRequest = async (req, res) => {
       });
     }
 
-    // Update request
     await request.update({
       status: 'rejected',
       reviewed_by: req.user.id,
@@ -239,7 +302,6 @@ exports.rejectRequest = async (req, res) => {
       review_note
     }, { transaction });
 
-    // Log rejection
     await AuditTrail.create({
       user_id: req.user.id,
       action: 'DELETE_REJECT',
@@ -248,7 +310,7 @@ exports.rejectRequest = async (req, res) => {
       reason: request.reason,
       new_data: {
         rejected_by: req.user.username,
-        requested_by: request.requester.username,
+        requested_by: request.requester?.username,
         review_note
       },
       ip_address: req.ip,

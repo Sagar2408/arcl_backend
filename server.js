@@ -144,15 +144,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log('');
-      console.log('⚠️  DATABASE WAS RESET - ALL DATA CLEARED');
-      console.log('');
-      console.log('📚 API Endpoints:');
-      console.log(`   - Login: POST http://localhost:${PORT}/api/users/login`);
-      console.log(`   - Create User: POST http://localhost:${PORT}/api/users`);
-      console.log('');
-      console.log('🔴 IMPORTANT: Stop server and change force: true to alter: true now!');
     });
-
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
