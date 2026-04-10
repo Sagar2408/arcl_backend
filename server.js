@@ -111,11 +111,8 @@ const startServer = async () => {
   try {
     // Test database connection
     await testConnection();
-
-    // ⚠️ WARNING: force: true drops ALL tables and recreates them
-    // This will DELETE ALL EXISTING DATA - use only once
     await sequelize.sync({
-      alter: process.env.NODE_ENV === 'development',  // ✅ Safe mode
+      alter: true,
       logging: false
     });
     console.log('✅ Database models synchronized (force: true)');

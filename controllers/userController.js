@@ -1,6 +1,8 @@
 const { User, Permission, AuditTrail, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const transporter = require('../config/mail');
 
 // All available sections in the system
 const ALL_SECTIONS = [
@@ -19,7 +21,7 @@ const ALL_SECTIONS = [
   'annual_reports',
   'annual_returns',
   'financial_statements',
-  'newspaper_publications'
+  'newspaper_publications',
 ];
 
 // Generate JWT token
@@ -139,7 +141,7 @@ exports.createUser = async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const { username, password, role, permissions } = req.body;
+    const { username, email, password, role, permissions } = req.body;
 
     // Check if username exists
     const existingUser = await User.findOne({ where: { username } });
@@ -150,9 +152,19 @@ exports.createUser = async (req, res) => {
       });
     }
 
+    // Check if email exists
+    const existingEmail = await User.findOne({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+
     // Create user
     const user = await User.create({
       username,
+      email,
       password,
       role
     }, { transaction });
@@ -177,7 +189,7 @@ exports.createUser = async (req, res) => {
       action: 'CREATE',
       section: 'users',
       record_id: user.id,
-      new_data: { username, role },
+      new_data: { username, email, role },
       ip_address: req.ip,
       user_agent: req.headers['user-agent']
     }, { transaction });
@@ -190,6 +202,7 @@ exports.createUser = async (req, res) => {
       data: {
         id: user.id,
         username: user.username,
+        email: user.email,
         role: user.role
       }
     });
@@ -265,7 +278,7 @@ exports.updateUser = async (req, res) => {
   
   try {
     const { id } = req.params;
-    const { username, password, is_active, permissions } = req.body;
+    const { username, email, password, is_active, permissions } = req.body;
 
     const user = await User.findByPk(id, {
       include: [{ model: Permission, as: 'permissions' }],
@@ -280,11 +293,16 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    const oldData = { username: user.username, is_active: user.is_active };
+    const oldData = { 
+      username: user.username, 
+      email: user.email,
+      is_active: user.is_active 
+    };
 
     // Update user fields
     const updateData = {};
     if (username) updateData.username = username;
+    if (email) updateData.email = email;
     if (password) updateData.password = password;
     if (typeof is_active === 'boolean') updateData.is_active = is_active;
 
@@ -373,7 +391,7 @@ exports.deleteUser = async (req, res) => {
       action: 'DELETE_APPROVE',
       section: 'users',
       record_id: id,
-      old_data: { username: user.username, role: user.role },
+      old_data: { username: user.username, email: user.email, role: user.role },
       ip_address: req.ip,
       user_agent: req.headers['user-agent']
     }, { transaction });
@@ -429,6 +447,7 @@ exports.getMyPermissions = async (req, res) => {
       data: {
         id: user.id,
         username: user.username,
+        email: user.email,
         role: user.role,
         permissions
       }
@@ -438,6 +457,132 @@ exports.getMyPermissions = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching permissions',
+      error: error.message
+    });
+  }
+};
+
+// FORGOT PASSWORD
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate email presence
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Generate secure reset token
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Hash the token before saving
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Set token and expiry (10 minutes from now)
+    user.reset_password_token = hashedToken;
+    user.reset_password_expiry = Date.now() + 10 * 60 * 1000;
+
+    await user.save();
+
+    // Create reset link
+    const resetLink = `http://localhost:3000/reset-password/${token}`;
+
+    // Send reset email
+    await transporter.sendMail({
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: `
+        <h3>Password Reset Request</h3>
+        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <a href="${resetLink}">Reset Password</a>
+        <p>This link will expire in 10 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+      `
+    });
+
+    res.json({
+      success: true,
+      message: 'Reset link sent to email'
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error sending reset link',
+      error: error.message
+    });
+  }
+};
+
+// RESET PASSWORD
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    // Validate inputs
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token and new password are required'
+      });
+    }
+
+    // Hash incoming token to match with DB
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with valid token and expiry
+    const user = await User.findOne({
+      where: {
+        reset_password_token: hashedToken,
+        reset_password_expiry: {
+          [Op.gt]: Date.now()
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
+
+    // Update password (model hooks should handle hashing)
+    user.password = newPassword;
+    user.reset_password_token = null;
+    user.reset_password_expiry = null;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successful'
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error resetting password',
       error: error.message
     });
   }

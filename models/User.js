@@ -25,7 +25,21 @@ const User = sequelize.define('User', {
       }
     }
   },
-
+  email: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    unique: {
+      msg: 'Email already exists'
+    },
+    validate: {
+      isEmail: {
+        msg: 'Please enter a valid email'
+      },
+      notEmpty: {
+        msg: 'Email is required'
+      }
+    }
+  },
   password: {
     type: DataTypes.STRING(255),
     allowNull: false,
@@ -52,6 +66,15 @@ const User = sequelize.define('User', {
   },
 
   last_login: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  reset_password_token: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  reset_password_expiry: {
     type: DataTypes.DATE,
     allowNull: true
   }
@@ -81,7 +104,7 @@ const User = sequelize.define('User', {
 });
 
 // Instance method to check password
-User.prototype.comparePassword = async function(candidatePassword) {
+User.prototype.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 

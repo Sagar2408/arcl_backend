@@ -35,5 +35,8 @@ router.put('/:id', authMiddleware, superAdminOnly, userController.updateUser);
 // Delete user
 router.delete('/:id', authMiddleware, superAdminOnly, userController.deleteUser);
 
+router.post('/forgot-password', userController.forgotPassword);
+router.post('/reset-password/:token', userController.resetPassword);
+
 
 module.exports = router;
