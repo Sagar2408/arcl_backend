@@ -119,12 +119,18 @@ const startServer = async () => {
 
     // 🌱 Create initial Super Admin
     const existingSuperAdmin = await User.findOne({
-      where: { username: 'superadmin' }
+      where: {
+        [require('sequelize').Op.or]: [
+          { username: 'superadmin' },
+          { email: 'admin@arcl.com' }
+        ]
+      }
     });
 
     if (!existingSuperAdmin) {
       await User.create({
         username: 'superadmin',
+        email: 'admin@arcl.com',
         password: 'admin123',
         role: 'super_admin',
         is_active: true
@@ -132,7 +138,7 @@ const startServer = async () => {
 
       console.log('');
       console.log('🌱 INITIAL SUPER ADMIN CREATED:');
-      console.log('   Username: superadmin');
+      console.log('   Email: admin@arcl.com');
       console.log('   Password: admin123');
       console.log('');
     }

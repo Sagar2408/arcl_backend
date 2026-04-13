@@ -42,14 +42,25 @@ exports.login = async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const { username, password } = req.body;
+    const email = req.body.email;
+    const password = req.body.password;
+
+    // Guard: ensure email is present before querying
+    if (!email || !password) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
+      });
+    }
 
     const user = await User.findOne({ 
-      where: { username, is_active: true },
+      where: { email: email, is_active: true },
       include: [{ model: Permission, as: 'permissions' }]
     });
 
     if (!user) {
+      await transaction.rollback();
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -58,16 +69,7 @@ exports.login = async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      // Log failed login attempt
-      await AuditTrail.create({
-        user_id: user.id,
-        action: 'LOGIN',
-        ip_address: req.ip,
-        user_agent: req.headers['user-agent'],
-        reason: 'Failed: Invalid password'
-      }, { transaction });
-      
-      await transaction.commit();
+      await transaction.rollback();
       
       return res.status(401).json({
         success: false,
@@ -120,6 +122,7 @@ exports.login = async (req, res) => {
       data: {
         id: user.id,
         username: user.username,
+        email: user.email,
         role: user.role,
         permissions,
         token
@@ -143,12 +146,12 @@ exports.createUser = async (req, res) => {
   try {
     const { username, email, password, role, permissions } = req.body;
 
-    // Check if username exists
-    const existingUser = await User.findOne({ where: { username } });
+    // Check if user exists by email
+    const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'Username already exists'
+        message: 'User with this email already exists'
       });
     }
 
