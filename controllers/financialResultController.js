@@ -2,25 +2,34 @@ const { FinancialResult } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const logAudit = require('../utils/auditLogger');
+const {
+  buildSnapshot,
+  buildCreateDescription,
+  buildUpdateAuditDescription,
+  buildDeleteDescription
+} = require('../utils/controllerAuditHelper');
 
+const MODULE_NAME = 'financial_results';
+const ENTITY_LABEL = 'financial result';
+const SNAPSHOT_FIELDS = ['title', 'date', 'pdf_url'];
 
 // CREATE FINANCIAL RESULT
 exports.createFinancialResult = async (req, res) => {
   try {
-
     const { title, date } = req.body;
 
     if (!title || !date) {
       return res.status(400).json({
         success: false,
-        message: "Title and date are required"
+        message: 'Title and date are required'
       });
     }
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "PDF file is required"
+        message: 'PDF file is required'
       });
     }
 
@@ -32,34 +41,40 @@ exports.createFinancialResult = async (req, res) => {
       pdf_url
     });
 
+    const newData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: MODULE_NAME,
+      recordId: financialResult.id,
+      newData,
+      description: buildCreateDescription({
+        entityLabel: ENTITY_LABEL,
+        data: newData
+      })
+    });
+
     res.status(201).json({
       success: true,
-      message: "Financial result created successfully",
+      message: 'Financial result created successfully',
       data: financialResult
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error creating financial result",
+      message: 'Error creating financial result',
       error: error.message
     });
-
   }
 };
 
-
-
 // GET ALL FINANCIAL RESULTS (Pagination + Search)
 exports.getAllFinancialResults = async (req, res) => {
-
   try {
-
     const { page = 1, limit = 10, search } = req.query;
-
     const offset = (page - 1) * limit;
-
     const whereClause = {};
 
     if (search) {
@@ -69,15 +84,10 @@ exports.getAllFinancialResults = async (req, res) => {
     }
 
     const { count, rows: financialResults } = await FinancialResult.findAndCountAll({
-
       where: whereClause,
-
       order: [['created_at', 'DESC']],
-
-      limit: parseInt(limit),
-
-      offset: parseInt(offset)
-
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10)
     });
 
     res.json({
@@ -85,32 +95,25 @@ exports.getAllFinancialResults = async (req, res) => {
       data: financialResults,
       pagination: {
         total: count,
-        page: parseInt(page),
+        page: parseInt(page, 10),
         pages: Math.ceil(count / limit),
-        limit: parseInt(limit)
+        limit: parseInt(limit, 10)
       }
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error fetching financial results",
+      message: 'Error fetching financial results',
       error: error.message
     });
-
   }
 };
 
-
-
 // UPDATE FINANCIAL RESULT
 exports.updateFinancialResult = async (req, res) => {
-
   try {
-
     const { id } = req.params;
-
     const { title, date } = req.body;
 
     const financialResult = await FinancialResult.findByPk(id);
@@ -118,16 +121,14 @@ exports.updateFinancialResult = async (req, res) => {
     if (!financialResult) {
       return res.status(404).json({
         success: false,
-        message: "Financial result not found"
+        message: 'Financial result not found'
       });
     }
 
+    const oldData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
     let pdf_url = financialResult.pdf_url;
 
-    // If new PDF uploaded
     if (req.file) {
-
-      // Delete old PDF
       const oldFilePath = path.join(__dirname, '..', financialResult.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
@@ -143,30 +144,47 @@ exports.updateFinancialResult = async (req, res) => {
       pdf_url
     });
 
+    const newData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: MODULE_NAME,
+      recordId: financialResult.id,
+      oldData,
+      newData,
+      description: buildUpdateAuditDescription({
+        entityLabel: ENTITY_LABEL,
+        oldData,
+        newData,
+        fields: ['title', 'date'],
+        labels: {
+          title: 'title',
+          date: 'date'
+        },
+        fileChanged: oldData.pdf_url !== newData.pdf_url,
+        fallback: `Updated financial result "${newData.title || oldData.title || 'record'}"`
+      })
+    });
+
     res.json({
       success: true,
-      message: "Financial result updated successfully",
+      message: 'Financial result updated successfully',
       data: financialResult
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error updating financial result",
+      message: 'Error updating financial result',
       error: error.message
     });
-
   }
 };
 
-
-
 // DELETE FINANCIAL RESULT
 exports.deleteFinancialResult = async (req, res) => {
-
   try {
-
     const { id } = req.params;
 
     const financialResult = await FinancialResult.findByPk(id);
@@ -174,11 +192,11 @@ exports.deleteFinancialResult = async (req, res) => {
     if (!financialResult) {
       return res.status(404).json({
         success: false,
-        message: "Financial result not found"
+        message: 'Financial result not found'
       });
     }
 
-    // Delete PDF file
+    const oldData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
     const filePath = path.join(__dirname, '..', financialResult.pdf_url);
 
     if (fs.existsSync(filePath)) {
@@ -187,18 +205,28 @@ exports.deleteFinancialResult = async (req, res) => {
 
     await financialResult.destroy();
 
+    await logAudit({
+      req,
+      action: 'DELETE_APPROVE',
+      module: MODULE_NAME,
+      recordId: financialResult.id,
+      oldData,
+      description: buildDeleteDescription({
+        entityLabel: ENTITY_LABEL,
+        title: oldData.title
+      })
+    });
+
     res.json({
       success: true,
-      message: "Financial result deleted successfully"
+      message: 'Financial result deleted successfully'
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error deleting financial result",
+      message: 'Error deleting financial result',
       error: error.message
     });
-
   }
 };

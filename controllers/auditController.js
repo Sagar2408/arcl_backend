@@ -1,10 +1,11 @@
 const { AuditTrail, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
-// GET ALL AUDIT LOGS (Super Admin only)
+
+// ================= GET ALL AUDIT LOGS =================
 exports.getAllLogs = async (req, res) => {
   try {
-    const { 
+    let { 
       page = 1, 
       limit = 50, 
       user_id, 
@@ -15,28 +16,47 @@ exports.getAllLogs = async (req, res) => {
       search 
     } = req.query;
 
+    // 🔒 limit protection
+    limit = Math.min(parseInt(limit) || 50, 100);
+    page = parseInt(page) || 1;
+
     const offset = (page - 1) * limit;
     const whereClause = {};
 
     if (user_id) whereClause.user_id = user_id;
     if (action) whereClause.action = action;
     if (section) whereClause.section = section;
-    
+
+    // 📅 date filter
     if (start_date || end_date) {
       whereClause.created_at = {};
-      if (start_date) whereClause.created_at[Op.gte] = new Date(start_date);
-      if (end_date) whereClause.created_at[Op.lte] = new Date(end_date);
+      if (start_date && !isNaN(new Date(start_date))) {
+        whereClause.created_at[Op.gte] = new Date(start_date);
+      }
+      if (end_date && !isNaN(new Date(end_date))) {
+        whereClause.created_at[Op.lte] = new Date(end_date);
+      }
+    }
+
+    // 🔍 search (NEW)
+    if (search) {
+      whereClause[Op.or] = [
+        { description: { [Op.like]: `%${search}%` } },
+        { action: { [Op.like]: `%${search}%` } },
+        { section: { [Op.like]: `%${search}%` } }
+      ];
     }
 
     const { count, rows: logs } = await AuditTrail.findAndCountAll({
       where: whereClause,
       include: [{
         model: User,
-        attributes: ['id', 'username', 'role']
+        attributes: ['id', 'username', 'email', 'role'],
+        required: false
       }],
       order: [['created_at', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit,
+      offset
     });
 
     res.json({
@@ -44,9 +64,9 @@ exports.getAllLogs = async (req, res) => {
       data: logs,
       pagination: {
         total: count,
-        page: parseInt(page),
+        page,
         pages: Math.ceil(count / limit),
-        limit: parseInt(limit)
+        limit
       }
     });
 
@@ -59,7 +79,8 @@ exports.getAllLogs = async (req, res) => {
   }
 };
 
-// GET AUDIT LOG BY ID
+
+// ================= GET SINGLE LOG =================
 exports.getLogById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -67,7 +88,8 @@ exports.getLogById = async (req, res) => {
     const log = await AuditTrail.findByPk(id, {
       include: [{
         model: User,
-        attributes: ['id', 'username', 'role']
+        attributes: ['id', 'username', 'role'],
+        required: false
       }]
     });
 
@@ -92,50 +114,34 @@ exports.getLogById = async (req, res) => {
   }
 };
 
-// DELETE OLD AUDIT LOGS (Super Admin only - data retention)
+
+// ================= DELETE LOGS (DISABLED FOR COMPLIANCE) =================
 exports.deleteOldLogs = async (req, res) => {
-  try {
-    const { days = 365 } = req.body; // Default: delete logs older than 1 year
-    
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-
-    const result = await AuditTrail.destroy({
-      where: {
-        created_at: {
-          [Op.lt]: cutoffDate
-        }
-      }
-    });
-
-    res.json({
-      success: true,
-      message: `${result} old audit logs deleted`,
-      deleted_count: result
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting audit logs',
-      error: error.message
-    });
-  }
+  return res.status(403).json({
+    success: false,
+    message: 'Audit logs cannot be deleted (compliance requirement)'
+  });
 };
 
-// GET AUDIT STATISTICS
+
+// ================= GET STATISTICS =================
 exports.getStatistics = async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
-    
+
     const whereClause = {};
+
     if (start_date || end_date) {
       whereClause.created_at = {};
-      if (start_date) whereClause.created_at[Op.gte] = new Date(start_date);
-      if (end_date) whereClause.created_at[Op.lte] = new Date(end_date);
+      if (start_date && !isNaN(new Date(start_date))) {
+        whereClause.created_at[Op.gte] = new Date(start_date);
+      }
+      if (end_date && !isNaN(new Date(end_date))) {
+        whereClause.created_at[Op.lte] = new Date(end_date);
+      }
     }
 
-    // Action counts
+    // 📊 action counts
     const actionCounts = await AuditTrail.findAll({
       where: whereClause,
       attributes: [
@@ -146,7 +152,7 @@ exports.getStatistics = async (req, res) => {
       raw: true
     });
 
-    // Section activity
+    // 📊 section counts
     const sectionCounts = await AuditTrail.findAll({
       where: { ...whereClause, section: { [Op.not]: null } },
       attributes: [
@@ -157,7 +163,7 @@ exports.getStatistics = async (req, res) => {
       raw: true
     });
 
-    // Most active users
+    // 📊 most active users
     const activeUsers = await AuditTrail.findAll({
       where: whereClause,
       attributes: [
@@ -170,8 +176,7 @@ exports.getStatistics = async (req, res) => {
       }],
       group: ['user_id', 'User.id', 'User.username'],
       order: [[sequelize.fn('COUNT', sequelize.col('user_id')), 'DESC']],
-      limit: 10,
-      raw: true
+      limit: 10
     });
 
     res.json({

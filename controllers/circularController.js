@@ -3,7 +3,6 @@ const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 
-
 // CREATE CIRCULAR
 exports.createCircular = async (req, res) => {
   try {
@@ -48,9 +47,6 @@ exports.createCircular = async (req, res) => {
 
   }
 };
-
-
-
 // GET ALL CIRCULARS (Pagination + Search)
 exports.getAllCirculars = async (req, res) => {
 
@@ -101,9 +97,6 @@ exports.getAllCirculars = async (req, res) => {
 
   }
 };
-
-
-
 // UPDATE CIRCULAR
 exports.updateCircular = async (req, res) => {
 
@@ -159,9 +152,6 @@ exports.updateCircular = async (req, res) => {
 
   }
 };
-
-
-
 // DELETE CIRCULAR
 exports.deleteCircular = async (req, res) => {
   try {

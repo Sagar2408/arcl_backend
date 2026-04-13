@@ -1,10 +1,15 @@
-const { User, Permission, AuditTrail, sequelize } = require('../models');
+const { User, Permission, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const transporter = require('../config/mail');
+const logAudit = require('../utils/auditLogger');
+const {
+  createDescription,
+  updateDescription,
+  permissionDescription
+} = require('../utils/auditDescriptions');
 
-// All available sections in the system
 const ALL_SECTIONS = [
   'circulars',
   'master_circulars',
@@ -24,28 +29,122 @@ const ALL_SECTIONS = [
   'newspaper_publications',
 ];
 
-// Generate JWT token
 const generateToken = (user) => {
   return jwt.sign(
-    { 
-      id: user.id, 
-      username: user.username, 
-      role: user.role 
+    {
+      id: user.id,
+      username: user.username,
+      role: user.role
     },
     process.env.JWT_SECRET,
     { expiresIn: '24h' }
   );
 };
 
+const toPlainPermission = (permission = {}) => {
+  const source = permission?.dataValues || permission;
+
+  return {
+    section: source.section,
+    can_view: Boolean(source.can_view),
+    can_create: Boolean(source.can_create),
+    can_update: Boolean(source.can_update),
+    can_delete: Boolean(source.can_delete)
+  };
+};
+
+const normalizePermissions = (permissions = []) => {
+  return permissions
+    .map((permission) => toPlainPermission(permission))
+    .filter((permission) => permission.section)
+    .sort((a, b) => a.section.localeCompare(b.section));
+};
+
+const buildPermissionData = (permissions = [], userId) => {
+  return permissions.map((permission) => ({
+    user_id: userId,
+    section: permission.section,
+    can_view: permission.can_view ?? true,
+    can_create: permission.can_create ?? false,
+    can_update: permission.can_update ?? false,
+    can_delete: permission.can_delete ?? false
+  }));
+};
+
+const getStoredPermissions = async (userId, transaction) => {
+  const permissions = await Permission.findAll({
+    where: { user_id: userId },
+    order: [['section', 'ASC']],
+    transaction
+  });
+
+  return normalizePermissions(permissions.map((permission) => permission.dataValues));
+};
+
+const buildUserSnapshot = (user, permissions = []) => {
+  const source = user?.dataValues || user || {};
+
+  return {
+    username: source.username,
+    email: source.email,
+    role: source.role,
+    is_active: source.is_active,
+    permissions: normalizePermissions(permissions)
+  };
+};
+
+const buildUserDescriptionData = (snapshot = {}) => {
+  return {
+    username: snapshot.username,
+    email: snapshot.email,
+    status: snapshot.is_active ? 'Active' : 'Inactive'
+  };
+};
+
+const combineDescriptions = (...parts) => {
+  return parts
+    .filter((part) => typeof part === 'string' && part.trim())
+    .join(' | ');
+};
+
+const formatPermissionsForResponse = (role, permissionRows = []) => {
+  const permissions = {};
+
+  if (role === 'super_admin') {
+    ALL_SECTIONS.forEach((section) => {
+      permissions[section] = {
+        can_view: true,
+        can_create: true,
+        can_update: true,
+        can_delete: true
+      };
+    });
+
+    return permissions;
+  }
+
+  permissionRows.forEach((permission) => {
+    const source = permission?.dataValues || permission;
+
+    permissions[source.section] = {
+      can_view: source.can_view,
+      can_create: source.can_create,
+      can_update: source.can_update,
+      can_delete: source.can_delete
+    };
+  });
+
+  return permissions;
+};
+
 // LOGIN
 exports.login = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const email = req.body.email;
     const password = req.body.password;
 
-    // Guard: ensure email is present before querying
     if (!email || !password) {
       await transaction.rollback();
       return res.status(400).json({
@@ -54,7 +153,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ 
+    const user = await User.findOne({
       where: { email: email, is_active: true },
       include: [{ model: Permission, as: 'permissions' }]
     });
@@ -70,51 +169,38 @@ exports.login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       await transaction.rollback();
-      
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    // Update last login
+    const previousLastLogin = user.last_login;
+
     await user.update({ last_login: new Date() }, { transaction });
 
-    // Log successful login
-    await AuditTrail.create({
-      user_id: user.id,
+    await logAudit({
+      req,
+      userId: user.id,
       action: 'LOGIN',
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent']
-    }, { transaction });
+      module: 'users',
+      recordId: user.id,
+      oldData: previousLastLogin ? { last_login: previousLastLogin } : null,
+      newData: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        is_active: user.is_active,
+        last_login: user.last_login
+      },
+      description: `User ${user.username} logged in`,
+      transaction
+    });
 
     await transaction.commit();
 
     const token = generateToken(user);
-
-    // Format permissions for frontend
-    const permissions = {};
-    if (user.role === 'super_admin') {
-      // Super admin has all permissions
-      ALL_SECTIONS.forEach(section => {
-        permissions[section] = {
-          can_view: true,
-          can_create: true,
-          can_update: true,
-          can_delete: true
-        };
-      });
-    } else {
-      // Executive gets assigned permissions
-      user.permissions.forEach(perm => {
-        permissions[perm.section] = {
-          can_view: perm.can_view,
-          can_create: perm.can_create,
-          can_update: perm.can_update,
-          can_delete: perm.can_delete
-        };
-      });
-    }
+    const permissions = formatPermissionsForResponse(user.role, user.permissions);
 
     res.json({
       success: true,
@@ -142,29 +228,28 @@ exports.login = async (req, res) => {
 // CREATE USER (Super Admin only)
 exports.createUser = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const { username, email, password, role, permissions } = req.body;
 
-    // Check if user exists by email
-    const existingUser = await User.findOne({ where: { email } });
+    const existingUser = await User.findOne({ where: { email }, transaction });
     if (existingUser) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: 'User with this email already exists'
       });
     }
 
-    // Check if email exists
-    const existingEmail = await User.findOne({ where: { email } });
+    const existingEmail = await User.findOne({ where: { email }, transaction });
     if (existingEmail) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: 'Email already exists'
       });
     }
 
-    // Create user
     const user = await User.create({
       username,
       email,
@@ -172,30 +257,24 @@ exports.createUser = async (req, res) => {
       role
     }, { transaction });
 
-    // Create permissions for executive
     if (role === 'executive' && permissions && permissions.length > 0) {
-      const permissionData = permissions.map(p => ({
-        user_id: user.id,
-        section: p.section,
-        can_view: p.can_view ?? true,
-        can_create: p.can_create ?? false,
-        can_update: p.can_update ?? false,
-        can_delete: p.can_delete ?? false
-      }));
-
+      const permissionData = buildPermissionData(permissions, user.id);
       await Permission.bulkCreate(permissionData, { transaction });
     }
 
-    // Log action
-    await AuditTrail.create({
-      user_id: req.user.id,
+    const newPermissions = await getStoredPermissions(user.id, transaction);
+    const newSnapshot = buildUserSnapshot(user, newPermissions);
+
+    await logAudit({
+      req,
       action: 'CREATE',
-      section: 'users',
-      record_id: user.id,
-      new_data: { username, email, role },
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent']
-    }, { transaction });
+      module: 'users',
+      recordId: user.id,
+      oldData: null,
+      newData: newSnapshot,
+      description: createDescription('users', newSnapshot),
+      transaction
+    });
 
     await transaction.commit();
 
@@ -224,7 +303,7 @@ exports.createUser = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
-      where: { id: { [Op.ne]: req.user.id } }, // Exclude current user
+      where: { id: { [Op.ne]: req.user.id } },
       include: [{ model: Permission, as: 'permissions' }],
       attributes: { exclude: ['password'] },
       order: [['created_at', 'DESC']]
@@ -278,7 +357,7 @@ exports.getUserById = async (req, res) => {
 // UPDATE USER
 exports.updateUser = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const { id } = req.params;
     const { username, email, password, is_active, permissions } = req.body;
@@ -296,13 +375,11 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    const oldData = { 
-      username: user.username, 
-      email: user.email,
-      is_active: user.is_active 
-    };
+    const oldPermissions = normalizePermissions(
+      (user.permissions || []).map((permission) => permission.dataValues)
+    );
+    const oldSnapshot = buildUserSnapshot(user, oldPermissions);
 
-    // Update user fields
     const updateData = {};
     if (username) updateData.username = username;
     if (email) updateData.email = email;
@@ -311,38 +388,52 @@ exports.updateUser = async (req, res) => {
 
     await user.update(updateData, { transaction });
 
-    // Update permissions if provided
+    let newPermissions = oldPermissions;
+
     if (user.role === 'executive' && permissions) {
-      // Delete existing permissions
       await Permission.destroy({
-        where: { user_id: id },
+        where: { user_id: user.id },
         transaction
       });
 
-      // Create new permissions
-      const permissionData = permissions.map(p => ({
-        user_id: id,
-        section: p.section,
-        can_view: p.can_view ?? true,
-        can_create: p.can_create ?? false,
-        can_update: p.can_update ?? false,
-        can_delete: p.can_delete ?? false
-      }));
+      const permissionData = buildPermissionData(permissions, user.id);
+      if (permissionData.length > 0) {
+        await Permission.bulkCreate(permissionData, { transaction });
+      }
 
-      await Permission.bulkCreate(permissionData, { transaction });
+      newPermissions = await getStoredPermissions(user.id, transaction);
     }
 
-    // Log action
-    await AuditTrail.create({
-      user_id: req.user.id,
+    const newSnapshot = buildUserSnapshot(user, newPermissions);
+    const userDescription = updateDescription(
+      'user',
+      buildUserDescriptionData(oldSnapshot),
+      buildUserDescriptionData(newSnapshot),
+      {
+        fields: ['username', 'email', 'status'],
+        labels: {
+          username: 'username',
+          email: 'email',
+          status: 'status'
+        },
+        prefix: 'Updated user',
+        fallback: null
+      }
+    );
+    const permissionsText = permissionDescription(oldPermissions, newPermissions, newSnapshot.username);
+    const description = combineDescriptions(userDescription, permissionsText)
+      || `Updated user "${newSnapshot.username || oldSnapshot.username || 'user'}"`;
+
+    await logAudit({
+      req,
       action: 'UPDATE',
-      section: 'users',
-      record_id: id,
-      old_data: oldData,
-      new_data: updateData,
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent']
-    }, { transaction });
+      module: 'users',
+      recordId: user.id,
+      oldData: oldSnapshot,
+      newData: newSnapshot,
+      description,
+      transaction
+    });
 
     await transaction.commit();
 
@@ -364,11 +455,15 @@ exports.updateUser = async (req, res) => {
 // DELETE USER (Super Admin only)
 exports.deleteUser = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
     const { id } = req.params;
 
-    const user = await User.findByPk(id);
+    const user = await User.findByPk(id, {
+      include: [{ model: Permission, as: 'permissions' }],
+      transaction
+    });
+
     if (!user) {
       await transaction.rollback();
       return res.status(404).json({
@@ -377,8 +472,7 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
-    // Prevent deleting own account
-    if (parseInt(id) === req.user.id) {
+    if (parseInt(id, 10) === req.user.id) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
@@ -386,18 +480,23 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
+    const oldSnapshot = buildUserSnapshot(
+      user.dataValues,
+      (user.permissions || []).map((permission) => permission.dataValues)
+    );
+
     await user.destroy({ transaction });
 
-    // Log action
-    await AuditTrail.create({
-      user_id: req.user.id,
+    await logAudit({
+      req,
       action: 'DELETE_APPROVE',
-      section: 'users',
-      record_id: id,
-      old_data: { username: user.username, email: user.email, role: user.role },
-      ip_address: req.ip,
-      user_agent: req.headers['user-agent']
-    }, { transaction });
+      module: 'users',
+      recordId: user.id,
+      oldData: oldSnapshot,
+      newData: null,
+      description: `Deleted user ${oldSnapshot.username || 'user'}`,
+      transaction
+    });
 
     await transaction.commit();
 
@@ -423,27 +522,7 @@ exports.getMyPermissions = async (req, res) => {
       include: [{ model: Permission, as: 'permissions' }]
     });
 
-    const permissions = {};
-    
-    if (user.role === 'super_admin') {
-      ALL_SECTIONS.forEach(section => {
-        permissions[section] = {
-          can_view: true,
-          can_create: true,
-          can_update: true,
-          can_delete: true
-        };
-      });
-    } else {
-      user.permissions.forEach(perm => {
-        permissions[perm.section] = {
-          can_view: perm.can_view,
-          can_create: perm.can_create,
-          can_update: perm.can_update,
-          can_delete: perm.can_delete
-        };
-      });
-    }
+    const permissions = formatPermissionsForResponse(user.role, user.permissions);
 
     res.json({
       success: true,
@@ -470,7 +549,6 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Validate email presence
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -478,7 +556,6 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    // Find user by email
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -488,25 +565,20 @@ exports.forgotPassword = async (req, res) => {
       });
     }
 
-    // Generate secure reset token
     const token = crypto.randomBytes(32).toString('hex');
 
-    // Hash the token before saving
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
       .digest('hex');
 
-    // Set token and expiry (10 minutes from now)
     user.reset_password_token = hashedToken;
     user.reset_password_expiry = Date.now() + 10 * 60 * 1000;
 
     await user.save();
 
-    // Create reset link
     const resetLink = `http://localhost:3000/reset-password/${token}`;
 
-    // Send reset email
     await transporter.sendMail({
       to: user.email,
       subject: 'Password Reset Request',
@@ -517,6 +589,21 @@ exports.forgotPassword = async (req, res) => {
         <p>This link will expire in 10 minutes.</p>
         <p>If you didn't request this, please ignore this email.</p>
       `
+    });
+
+    await logAudit({
+      req,
+      userId: user.id,
+      action: 'RESET_PASSWORD',
+      module: 'users',
+      recordId: user.id,
+      oldData: null,
+      newData: {
+        username: user.username,
+        email: user.email,
+        reset_password_requested: true
+      },
+      description: `Password reset requested for user ${user.username}`
     });
 
     res.json({
@@ -539,7 +626,6 @@ exports.resetPassword = async (req, res) => {
     const { token } = req.params;
     const { newPassword } = req.body;
 
-    // Validate inputs
     if (!token || !newPassword) {
       return res.status(400).json({
         success: false,
@@ -547,13 +633,11 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Hash incoming token to match with DB
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
       .digest('hex');
 
-    // Find user with valid token and expiry
     const user = await User.findOne({
       where: {
         reset_password_token: hashedToken,
@@ -570,12 +654,30 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Update password (model hooks should handle hashing)
     user.password = newPassword;
     user.reset_password_token = null;
     user.reset_password_expiry = null;
 
     await user.save();
+
+    await logAudit({
+      req,
+      userId: user.id,
+      action: 'RESET_PASSWORD',
+      module: 'users',
+      recordId: user.id,
+      oldData: {
+        username: user.username,
+        email: user.email,
+        reset_password_requested: true
+      },
+      newData: {
+        username: user.username,
+        email: user.email,
+        reset_password_requested: false
+      },
+      description: `Password reset completed for user ${user.username}`
+    });
 
     res.json({
       success: true,

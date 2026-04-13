@@ -28,8 +28,8 @@ const AuditTrail = sequelize.define('AuditTrail', {
       'DELETE_APPROVE',
       'DELETE_REJECT',
       'VIEW',
-      'PERMISSION_GRANT',
-      'PERMISSION_REVOKE'
+      'PERMISSION_UPDATE',   // 🔥 NEW (important)
+      'RESET_PASSWORD'       // 🔥 NEW (important)
     ),
     allowNull: false
   },
@@ -44,19 +44,34 @@ const AuditTrail = sequelize.define('AuditTrail', {
     allowNull: true
   },
 
+  // 🔥 OLD DATA (before change)
   old_data: {
     type: DataTypes.JSON,
     allowNull: true
   },
 
+  // 🔥 NEW DATA (after change)
   new_data: {
     type: DataTypes.JSON,
     allowNull: true
   },
 
+  // 🔥 MAIN FIELD YOU NEED
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+
+  // Optional (for delete request reason etc.)
   reason: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+
+  // Optional (success / failed)
+  status: {
+    type: DataTypes.ENUM('SUCCESS', 'FAILED'),
+    defaultValue: 'SUCCESS'
   },
 
   ip_address: {

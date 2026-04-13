@@ -2,25 +2,34 @@ const { SEBI } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const logAudit = require('../utils/auditLogger');
+const {
+  buildSnapshot,
+  buildCreateDescription,
+  buildUpdateAuditDescription,
+  buildDeleteDescription
+} = require('../utils/controllerAuditHelper');
 
+const MODULE_NAME = 'sebi';
+const ENTITY_LABEL = 'SEBI circular';
+const SNAPSHOT_FIELDS = ['title', 'date', 'pdf_url'];
 
 // CREATE SEBI
 exports.createSEBI = async (req, res) => {
   try {
-
     const { title, date } = req.body;
 
     if (!title || !date) {
       return res.status(400).json({
         success: false,
-        message: "Title and date are required"
+        message: 'Title and date are required'
       });
     }
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "PDF file is required"
+        message: 'PDF file is required'
       });
     }
 
@@ -32,34 +41,40 @@ exports.createSEBI = async (req, res) => {
       pdf_url
     });
 
+    const newData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: MODULE_NAME,
+      recordId: sebi.id,
+      newData,
+      description: buildCreateDescription({
+        entityLabel: ENTITY_LABEL,
+        data: newData
+      })
+    });
+
     res.status(201).json({
       success: true,
-      message: "SEBI created successfully",
+      message: 'SEBI created successfully',
       data: sebi
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error creating SEBI",
+      message: 'Error creating SEBI',
       error: error.message
     });
-
   }
 };
 
-
-
 // GET ALL SEBI (Pagination + Search)
 exports.getAllSEBI = async (req, res) => {
-
   try {
-
     const { page = 1, limit = 10, search } = req.query;
-
     const offset = (page - 1) * limit;
-
     const whereClause = {};
 
     if (search) {
@@ -69,15 +84,10 @@ exports.getAllSEBI = async (req, res) => {
     }
 
     const { count, rows: sebi } = await SEBI.findAndCountAll({
-
       where: whereClause,
-
       order: [['created_at', 'DESC']],
-
-      limit: parseInt(limit),
-
-      offset: parseInt(offset)
-
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10)
     });
 
     res.json({
@@ -85,32 +95,25 @@ exports.getAllSEBI = async (req, res) => {
       data: sebi,
       pagination: {
         total: count,
-        page: parseInt(page),
+        page: parseInt(page, 10),
         pages: Math.ceil(count / limit),
-        limit: parseInt(limit)
+        limit: parseInt(limit, 10)
       }
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error fetching SEBI",
+      message: 'Error fetching SEBI',
       error: error.message
     });
-
   }
 };
 
-
-
 // UPDATE SEBI
 exports.updateSEBI = async (req, res) => {
-
   try {
-
     const { id } = req.params;
-
     const { title, date } = req.body;
 
     const sebi = await SEBI.findByPk(id);
@@ -118,16 +121,14 @@ exports.updateSEBI = async (req, res) => {
     if (!sebi) {
       return res.status(404).json({
         success: false,
-        message: "SEBI not found"
+        message: 'SEBI not found'
       });
     }
 
+    const oldData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
     let pdf_url = sebi.pdf_url;
 
-    // If new PDF uploaded
     if (req.file) {
-
-      // Delete old PDF
       const oldFilePath = path.join(__dirname, '..', sebi.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
@@ -143,30 +144,47 @@ exports.updateSEBI = async (req, res) => {
       pdf_url
     });
 
+    const newData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: MODULE_NAME,
+      recordId: sebi.id,
+      oldData,
+      newData,
+      description: buildUpdateAuditDescription({
+        entityLabel: ENTITY_LABEL,
+        oldData,
+        newData,
+        fields: ['title', 'date'],
+        labels: {
+          title: 'title',
+          date: 'date'
+        },
+        fileChanged: oldData.pdf_url !== newData.pdf_url,
+        fallback: `Updated SEBI circular "${newData.title || oldData.title || 'record'}"`
+      })
+    });
+
     res.json({
       success: true,
-      message: "SEBI updated successfully",
+      message: 'SEBI updated successfully',
       data: sebi
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error updating SEBI",
+      message: 'Error updating SEBI',
       error: error.message
     });
-
   }
 };
 
-
-
 // DELETE SEBI
 exports.deleteSEBI = async (req, res) => {
-
   try {
-
     const { id } = req.params;
 
     const sebi = await SEBI.findByPk(id);
@@ -174,11 +192,11 @@ exports.deleteSEBI = async (req, res) => {
     if (!sebi) {
       return res.status(404).json({
         success: false,
-        message: "SEBI not found"
+        message: 'SEBI not found'
       });
     }
 
-    // Delete PDF file
+    const oldData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
     const filePath = path.join(__dirname, '..', sebi.pdf_url);
 
     if (fs.existsSync(filePath)) {
@@ -187,18 +205,28 @@ exports.deleteSEBI = async (req, res) => {
 
     await sebi.destroy();
 
+    await logAudit({
+      req,
+      action: 'DELETE_APPROVE',
+      module: MODULE_NAME,
+      recordId: sebi.id,
+      oldData,
+      description: buildDeleteDescription({
+        entityLabel: ENTITY_LABEL,
+        title: oldData.title
+      })
+    });
+
     res.json({
       success: true,
-      message: "SEBI deleted successfully"
+      message: 'SEBI deleted successfully'
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: "Error deleting SEBI",
+      message: 'Error deleting SEBI',
       error: error.message
     });
-
   }
 };

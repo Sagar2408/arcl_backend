@@ -1,8 +1,18 @@
-const { Newsletter } = require("../models");
-const { Op } = require("sequelize");
-const fs = require("fs");
-const path = require("path");
+const { Newsletter } = require('../models');
+const { Op } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
+const logAudit = require('../utils/auditLogger');
+const {
+  buildSnapshot,
+  buildCreateDescription,
+  buildUpdateAuditDescription,
+  buildDeleteDescription
+} = require('../utils/controllerAuditHelper');
 
+const MODULE_NAME = 'newsletter';
+const ENTITY_LABEL = 'newsletter';
+const SNAPSHOT_FIELDS = ['title', 'date', 'pdf_url'];
 
 // CREATE
 exports.createNewsletter = async (req, res) => {
@@ -12,14 +22,14 @@ exports.createNewsletter = async (req, res) => {
     if (!title || !date) {
       return res.status(400).json({
         success: false,
-        message: "Title and date are required",
+        message: 'Title and date are required',
       });
     }
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "PDF file is required",
+        message: 'PDF file is required',
       });
     }
 
@@ -31,28 +41,39 @@ exports.createNewsletter = async (req, res) => {
       pdf_url,
     });
 
+    const newData = buildSnapshot(newsletter, SNAPSHOT_FIELDS);
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: MODULE_NAME,
+      recordId: newsletter.id,
+      newData,
+      description: buildCreateDescription({
+        entityLabel: ENTITY_LABEL,
+        data: newData
+      })
+    });
+
     res.status(201).json({
       success: true,
-      message: "Newsletter created successfully",
+      message: 'Newsletter created successfully',
       data: newsletter,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error creating newsletter",
+      message: 'Error creating newsletter',
       error: error.message,
     });
   }
 };
 
-
 // GET ALL
 exports.getAllNewsletters = async (req, res) => {
   try {
     const { page = 1, limit = 10, search } = req.query;
-
     const offset = (page - 1) * limit;
-
     const whereClause = {};
 
     if (search) {
@@ -63,9 +84,9 @@ exports.getAllNewsletters = async (req, res) => {
 
     const { count, rows } = await Newsletter.findAndCountAll({
       where: whereClause,
-      order: [["created_at", "DESC"]],
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10),
     });
 
     res.json({
@@ -73,20 +94,19 @@ exports.getAllNewsletters = async (req, res) => {
       data: rows,
       pagination: {
         total: count,
-        page: parseInt(page),
+        page: parseInt(page, 10),
         pages: Math.ceil(count / limit),
-        limit: parseInt(limit),
+        limit: parseInt(limit, 10),
       },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error fetching newsletters",
+      message: 'Error fetching newsletters',
       error: error.message,
     });
   }
 };
-
 
 // UPDATE
 exports.updateNewsletter = async (req, res) => {
@@ -99,17 +119,18 @@ exports.updateNewsletter = async (req, res) => {
     if (!newsletter) {
       return res.status(404).json({
         success: false,
-        message: "Newsletter not found",
+        message: 'Newsletter not found',
       });
     }
 
+    const oldData = buildSnapshot(newsletter, SNAPSHOT_FIELDS);
     let pdf_url = newsletter.pdf_url;
 
     if (req.file) {
       const oldPath = path.join(
         __dirname,
-        "..",
-        newsletter.pdf_url.replace(/^\//, "")
+        '..',
+        newsletter.pdf_url.replace(/^\//, '')
       );
 
       if (fs.existsSync(oldPath)) {
@@ -125,20 +146,42 @@ exports.updateNewsletter = async (req, res) => {
       pdf_url,
     });
 
+    const newData = buildSnapshot(newsletter, SNAPSHOT_FIELDS);
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: MODULE_NAME,
+      recordId: newsletter.id,
+      oldData,
+      newData,
+      description: buildUpdateAuditDescription({
+        entityLabel: ENTITY_LABEL,
+        oldData,
+        newData,
+        fields: ['title', 'date'],
+        labels: {
+          title: 'title',
+          date: 'date'
+        },
+        fileChanged: oldData.pdf_url !== newData.pdf_url,
+        fallback: `Updated newsletter "${newData.title || oldData.title || 'record'}"`
+      })
+    });
+
     res.json({
       success: true,
-      message: "Newsletter updated successfully",
+      message: 'Newsletter updated successfully',
       data: newsletter,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error updating newsletter",
+      message: 'Error updating newsletter',
       error: error.message,
     });
   }
 };
-
 
 // DELETE
 exports.deleteNewsletter = async (req, res) => {
@@ -150,14 +193,15 @@ exports.deleteNewsletter = async (req, res) => {
     if (!newsletter) {
       return res.status(404).json({
         success: false,
-        message: "Newsletter not found",
+        message: 'Newsletter not found',
       });
     }
 
+    const oldData = buildSnapshot(newsletter, SNAPSHOT_FIELDS);
     const filePath = path.join(
       __dirname,
-      "..",
-      newsletter.pdf_url.replace(/^\//, "")
+      '..',
+      newsletter.pdf_url.replace(/^\//, '')
     );
 
     if (fs.existsSync(filePath)) {
@@ -166,14 +210,26 @@ exports.deleteNewsletter = async (req, res) => {
 
     await newsletter.destroy();
 
+    await logAudit({
+      req,
+      action: 'DELETE_APPROVE',
+      module: MODULE_NAME,
+      recordId: newsletter.id,
+      oldData,
+      description: buildDeleteDescription({
+        entityLabel: ENTITY_LABEL,
+        title: oldData.title
+      })
+    });
+
     res.json({
       success: true,
-      message: "Newsletter deleted successfully",
+      message: 'Newsletter deleted successfully',
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error deleting newsletter",
+      message: 'Error deleting newsletter',
       error: error.message,
     });
   }

@@ -2,42 +2,51 @@ const { Announcement } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const logAudit = require('../utils/auditLogger');
+const {
+  buildSnapshot,
+  buildCreateDescription,
+  buildUpdateAuditDescription,
+  buildDeleteDescription
+} = require('../utils/controllerAuditHelper');
 
-
-// ✅ ALLOWED CATEGORIES
 const allowedCategories = ['announcements', 'shareholders_meeting'];
+const SNAPSHOT_FIELDS = ['title', 'date', 'pdf_url', 'category'];
 
+const getAnnouncementModule = (category) => {
+  return category === 'shareholders_meeting' ? 'shareholders_meetings' : 'announcements';
+};
+
+const getAnnouncementLabel = (category) => {
+  return category === 'shareholders_meeting' ? 'shareholders meeting announcement' : 'announcement';
+};
 
 // CREATE ANNOUNCEMENT
 exports.createAnnouncement = async (req, res) => {
   try {
-
     let { title, date, category = 'announcements' } = req.body;
 
-    // ✅ VALIDATION
     if (!title || !date) {
       return res.status(400).json({
         success: false,
-        message: "Title and date are required"
+        message: 'Title and date are required'
       });
     }
 
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "PDF file is required"
+        message: 'PDF file is required'
       });
     }
 
-    // ✅ VALID CATEGORY CHECK
     if (!allowedCategories.includes(category)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid category"
+        message: 'Invalid category'
       });
     }
 
-    // ✅ SAFE FILE PATH (BEST PRACTICE)
     const pdf_url = `/uploads/${req.file.filename}`;
 
     const announcement = await Announcement.create({
@@ -47,35 +56,47 @@ exports.createAnnouncement = async (req, res) => {
       category
     });
 
+    const newData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
+    const moduleName = getAnnouncementModule(newData.category);
+    const entityLabel = getAnnouncementLabel(newData.category);
+
+    await logAudit({
+      req,
+      action: 'CREATE',
+      module: moduleName,
+      recordId: announcement.id,
+      newData,
+      description: buildCreateDescription({
+        entityLabel,
+        data: newData,
+        extraParts: newData.category ? [`Category: ${newData.category}`] : []
+      })
+    });
+
     res.status(201).json({
       success: true,
-      message: "Announcement created successfully",
+      message: 'Announcement created successfully',
       data: announcement
     });
 
   } catch (error) {
-    console.error("CREATE ANNOUNCEMENT ERROR:", error); // ✅ debug
+    console.error('CREATE ANNOUNCEMENT ERROR:', error);
 
     res.status(500).json({
       success: false,
-      message: "Error creating announcement",
+      message: 'Error creating announcement',
       error: error.message
     });
   }
 };
 
-
-
 // GET ALL ANNOUNCEMENTS (WITH CATEGORY SUPPORT)
 exports.getAllAnnouncements = async (req, res) => {
   try {
-
     const { page = 1, limit = 10, search, category } = req.query;
-
     const offset = (page - 1) * limit;
     const whereClause = {};
 
-    // ✅ FILTER BY CATEGORY (announcements / shareholders_meeting)
     if (category && allowedCategories.includes(category)) {
       whereClause.category = category;
     }
@@ -89,8 +110,8 @@ exports.getAllAnnouncements = async (req, res) => {
     const { count, rows: announcements } = await Announcement.findAndCountAll({
       where: whereClause,
       order: [['created_at', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit: parseInt(limit, 10),
+      offset: parseInt(offset, 10)
     });
 
     res.json({
@@ -98,27 +119,24 @@ exports.getAllAnnouncements = async (req, res) => {
       data: announcements,
       pagination: {
         total: count,
-        page: parseInt(page),
+        page: parseInt(page, 10),
         pages: Math.ceil(count / limit),
-        limit: parseInt(limit)
+        limit: parseInt(limit, 10)
       }
     });
 
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error fetching announcements",
+      message: 'Error fetching announcements',
       error: error.message
     });
   }
 };
 
-
-
 // UPDATE ANNOUNCEMENT
 exports.updateAnnouncement = async (req, res) => {
   try {
-
     const { id } = req.params;
     let { title, date, category } = req.body;
 
@@ -127,31 +145,27 @@ exports.updateAnnouncement = async (req, res) => {
     if (!announcement) {
       return res.status(404).json({
         success: false,
-        message: "Announcement not found"
+        message: 'Announcement not found'
       });
     }
 
-    // ✅ VALIDATE CATEGORY IF PROVIDED
     if (category && !allowedCategories.includes(category)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid category"
+        message: 'Invalid category'
       });
     }
 
+    const oldData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
     let pdf_url = announcement.pdf_url;
 
-    // If new PDF uploaded
     if (req.file) {
-
-      // DELETE OLD FILE
       const oldFilePath = path.join(__dirname, '..', announcement.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
 
-      // SAFE PATH
       pdf_url = `/uploads/${req.file.path
         .split('uploads/')[1]
         .replace(/\\/g, '/')}`;
@@ -164,27 +178,50 @@ exports.updateAnnouncement = async (req, res) => {
       pdf_url
     });
 
+    const newData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
+    const moduleName = getAnnouncementModule(newData.category);
+    const entityLabel = getAnnouncementLabel(newData.category);
+
+    await logAudit({
+      req,
+      action: 'UPDATE',
+      module: moduleName,
+      recordId: announcement.id,
+      oldData,
+      newData,
+      description: buildUpdateAuditDescription({
+        entityLabel,
+        oldData,
+        newData,
+        fields: ['title', 'date', 'category'],
+        labels: {
+          title: 'title',
+          date: 'date',
+          category: 'category'
+        },
+        fileChanged: oldData.pdf_url !== newData.pdf_url,
+        fallback: `Updated announcement "${newData.title || oldData.title || 'record'}"`
+      })
+    });
+
     res.json({
       success: true,
-      message: "Announcement updated successfully",
+      message: 'Announcement updated successfully',
       data: announcement
     });
 
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error updating announcement",
+      message: 'Error updating announcement',
       error: error.message
     });
   }
 };
 
-
-
 // DELETE ANNOUNCEMENT
 exports.deleteAnnouncement = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     const announcement = await Announcement.findByPk(id);
@@ -192,11 +229,13 @@ exports.deleteAnnouncement = async (req, res) => {
     if (!announcement) {
       return res.status(404).json({
         success: false,
-        message: "Announcement not found"
+        message: 'Announcement not found'
       });
     }
 
-    // DELETE FILE
+    const oldData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
+    const moduleName = getAnnouncementModule(oldData.category);
+    const entityLabel = getAnnouncementLabel(oldData.category);
     const filePath = path.join(__dirname, '..', announcement.pdf_url);
 
     if (fs.existsSync(filePath)) {
@@ -205,15 +244,27 @@ exports.deleteAnnouncement = async (req, res) => {
 
     await announcement.destroy();
 
+    await logAudit({
+      req,
+      action: 'DELETE_APPROVE',
+      module: moduleName,
+      recordId: announcement.id,
+      oldData,
+      description: buildDeleteDescription({
+        entityLabel,
+        title: oldData.title
+      })
+    });
+
     res.json({
       success: true,
-      message: "Announcement deleted successfully"
+      message: 'Announcement deleted successfully'
     });
 
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error deleting announcement",
+      message: 'Error deleting announcement',
       error: error.message
     });
   }
