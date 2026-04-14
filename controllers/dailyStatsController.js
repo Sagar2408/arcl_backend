@@ -1,5 +1,7 @@
 const { DailyStat } = require('../models');
 const { Op } = require('sequelize');
+const XLSX = require("xlsx");
+const fs = require("fs");
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
@@ -202,6 +204,151 @@ exports.deleteDailyStat = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting daily statistic',
+      error: error.message
+    });
+  }
+};
+
+//Bulk upload feature
+
+const excelDateToJSDate = (value) => {
+  // Case 1: Excel serial number
+  if (typeof value === "number") {
+    const date = new Date((value - 25569) * 86400 * 1000);
+    return date.toISOString().split("T")[0];
+  }
+
+  // Case 2: Already YYYY-MM-DD
+  if (typeof value === "string" && value.includes("-")) {
+    return value;
+  }
+
+  // Case 3: MM/DD/YYYY or DD/MM/YYYY
+  if (typeof value === "string" && value.includes("/")) {
+    const parts = value.split("/");
+
+    if (parts.length === 3) {
+      let [month, day, year] = parts;
+
+      // handle DD/MM/YYYY case
+      if (Number(month) > 12) {
+        [day, month] = [month, day];
+      }
+
+      month = String(month).padStart(2, "0");
+      day = String(day).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  return null; // invalid
+};
+
+exports.bulkUploadDailyStats = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded"
+      });
+    }
+
+    const workbook = XLSX.readFile(req.file.path);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet);
+
+    if (!data.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Excel file is empty"
+      });
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    let skippedRows = [];
+    const bulkRecords = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+
+      const parsedDate = excelDateToJSDate(row.trade_date);
+
+      // ❌ Skip invalid rows
+      if (!parsedDate) {
+        skippedRows.push({ row: i + 2, reason: "Invalid date format" });
+        continue;
+      }
+
+      const payload = {
+        trade_date: parsedDate,
+        no_of_trades: Number(row.no_of_trades) || 0,
+        trade_value: Number(row.trade_value) || 0,
+        fund_settlement_value: Number(row.fund_settlement_value) || 0,
+      };
+
+      const existing = await DailyStat.findOne({
+        where: { trade_date: payload.trade_date }
+      });
+
+      if (existing) {
+        await existing.update(payload);
+        updatedCount++;
+        bulkRecords.push({
+          trade_date: payload.trade_date,
+          no_of_trades: payload.no_of_trades,
+          trade_value: payload.trade_value,
+          fund_settlement_value: payload.fund_settlement_value,
+          action: "updated"
+        });
+      } else {
+        await DailyStat.create(payload);
+        createdCount++;
+        bulkRecords.push({
+          trade_date: payload.trade_date,
+          no_of_trades: payload.no_of_trades,
+          trade_value: payload.trade_value,
+          fund_settlement_value: payload.fund_settlement_value,
+          action: "created"
+        });
+      }
+    }
+
+    // Single audit log for bulk operation
+    const totalRows = data.length;
+    await logAudit({
+      req,
+      action: "BULK_UPLOAD",
+      module: MODULE_NAME,
+      newData: {
+        total_rows: totalRows,
+        created: createdCount,
+        updated: updatedCount,
+        skipped: skippedRows,
+        records: bulkRecords.slice(0, 20),
+        file_name: req.file.originalname
+      },
+      description: `Bulk uploaded ${totalRows} records (Created: ${createdCount}, Updated: ${updatedCount}, Skipped: ${skippedRows.length})`
+    });
+
+    // 🧹 delete uploaded file
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      message: "Bulk upload completed",
+      created: createdCount,
+      updated: updatedCount,
+      skipped: skippedRows
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Bulk upload failed",
       error: error.message
     });
   }

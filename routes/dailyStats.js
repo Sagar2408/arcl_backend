@@ -4,7 +4,8 @@ const router = express.Router();
 const dailyStatsController = require('../controllers/dailyStatsController');
 const authMiddleware = require('../middleware/authMiddleware');
 const { dailyStatsValidation, idParamValidation } = require('../middleware/validators');
-
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 // ✅ ADD THIS
 const { checkPermission } = require('../middleware/permissionMiddleware');
 
@@ -31,6 +32,14 @@ router.post(
   dailyStatsController.createDailyStat
 );
 
+// Bulk upload daily stats (Excel)
+router.post(
+  '/bulk-upload',
+  authMiddleware,
+  checkPermission('daily_stats', 'create'), // or 'update' if you want stricter control
+  upload.single('file'),
+  dailyStatsController.bulkUploadDailyStats
+);
 
 // Update daily stat
 router.put(
