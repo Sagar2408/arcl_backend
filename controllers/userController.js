@@ -142,9 +142,9 @@ exports.login = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const email = req.body.email;
-    const password = req.body.password;
+    const { email, password } = req.body;
 
+    // 1. Validate input
     if (!email || !password) {
       await transaction.rollback();
       return res.status(400).json({
@@ -153,11 +153,13 @@ exports.login = async (req, res) => {
       });
     }
 
+    // 2. Find user (❗ removed is_active filter)
     const user = await User.findOne({
-      where: { email: email, is_active: true },
+      where: { email },
       include: [{ model: Permission, as: 'permissions' }]
     });
 
+    // 3. Check user exists
     if (!user) {
       await transaction.rollback();
       return res.status(401).json({
@@ -166,6 +168,7 @@ exports.login = async (req, res) => {
       });
     }
 
+    // 4. Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       await transaction.rollback();
@@ -175,33 +178,56 @@ exports.login = async (req, res) => {
       });
     }
 
+    // 5. ❗ CHECK ACTIVE STATUS (MAIN FIX)
+    if (!user.is_active) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been deactivated by admin'
+      });
+    }
+
+    // 6. Store previous login
     const previousLastLogin = user.last_login;
 
-    await user.update({ last_login: new Date() }, { transaction });
+    // 7. Update last login
+    await user.update(
+      { last_login: new Date() },
+      { transaction }
+    );
 
+    // 8. Audit log
     await logAudit({
       req,
       userId: user.id,
       action: 'LOGIN',
       module: 'users',
       recordId: user.id,
-      oldData: previousLastLogin ? { last_login: previousLastLogin } : null,
+      oldData: previousLastLogin
+        ? { last_login: previousLastLogin }
+        : null,
       newData: {
         username: user.username,
         email: user.email,
         role: user.role,
         is_active: user.is_active,
-        last_login: user.last_login
+        last_login: new Date()
       },
       description: `User ${user.username} logged in`,
       transaction
     });
 
+    // 9. Commit transaction
     await transaction.commit();
 
+    // 10. Generate token & permissions
     const token = generateToken(user);
-    const permissions = formatPermissionsForResponse(user.role, user.permissions);
+    const permissions = formatPermissionsForResponse(
+      user.role,
+      user.permissions
+    );
 
+    // 11. Send response
     res.json({
       success: true,
       message: 'Login successful',
@@ -217,6 +243,7 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     await transaction.rollback();
+
     res.status(500).json({
       success: false,
       message: 'Error during login',
