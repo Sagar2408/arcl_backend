@@ -47,7 +47,7 @@ exports.createAnnouncement = async (req, res) => {
       });
     }
 
-    const pdf_url = `/uploads/${req.file.filename}`;
+    const pdf_url = `/uploads/announcements/general/${req.file.filename}`;
 
     const announcement = await Announcement.create({
       title,
