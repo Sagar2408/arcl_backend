@@ -6,7 +6,6 @@ const DailyStat = require('./DailyStat');
 const MonthlyStat = require('./MonthlyStat');
 const Newsletter = require('./newsletter');
 const Announcement = require('./Announcement');
-const ShareholdingPattern = require('./ShareholdingPattern');
 const ShareholdersMeeting = require('./ShareholdersMeeting');
 const PressRelease = require('./PressRelease');
 const InvestorComplaint = require('./InvestorComplaint');
@@ -21,6 +20,7 @@ const User = require('./User');
 const Permission = require('./Permission');
 const AuditTrail = require('./AuditTrail');
 const DeleteRequest = require('./DeleteRequest');
+const Archive = require('./Archive');
 
 // One User → Many Permissions
 User.hasMany(Permission, {
@@ -66,7 +66,6 @@ User.hasMany(DeleteRequest, {
   as: 'deleteRequests'
 });
 
-
 const db = {
   sequelize,
   Sequelize: require('sequelize'),
@@ -81,7 +80,6 @@ const db = {
   Newsletter,
   Announcement,
   InvestorComplaint,
-  ShareholdingPattern,
   PressRelease,
   ShareholdersMeeting,
   SEBI,
@@ -90,7 +88,8 @@ const db = {
   AnnualReport,
   AnnualReturn,
   NewspaperPublication,
-  FinancialStatement
+  FinancialStatement,
+  Archive
 };
 
 module.exports = db;

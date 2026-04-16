@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createFinancialStatement = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(financialStatement, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: financialStatement.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: financialStatement.toJSON(),
+      description: `Created financial statement "${financialStatement.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateFinancialStatement = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(financialStatement, SNAPSHOT_FIELDS);
+    const oldData = financialStatement.toJSON();
     let pdf_url = financialStatement.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateFinancialStatement = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(financialStatement, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: financialStatement.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated financial statement "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: financialStatement.toJSON(),
+      description: `Updated financial statement "${financialStatement.title || 'record'}"`
     });
 
     res.json({

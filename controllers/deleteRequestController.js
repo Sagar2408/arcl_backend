@@ -23,6 +23,7 @@ const {
 const { Op } = require('sequelize');
 const logAudit = require('../utils/auditLogger');
 const { buildSnapshot, toPlainObject } = require('../utils/controllerAuditHelper');
+const archiveRecord = require('../utils/archiveRecord');
 
 // Role constants for clarity and maintainability
 const ROLES = {
@@ -305,24 +306,21 @@ exports.createRequest = async (req, res) => {
   }
 };
 
-// DIRECT DELETE (SuperAdmin only - no approval needed)
+// DIRECT DELETE (SuperAdmin only)
 exports.directDelete = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
     const { section, record_id } = req.params;
-    const { reason, archive = true } = req.body; // Default to archive instead of hard delete
+    const { reason, archive = true } = req.body;
     const userRole = req.user.role;
     const userId = req.user.id;
 
-    // SECURITY CHECK: Only SuperAdmin can direct delete
     if (!canDirectDelete(userRole)) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
-        message: 'Only SuperAdmin can perform direct deletion',
-        code: 'SUPER_ADMIN_ONLY',
-        suggestion: 'Please use the delete request flow or contact your SuperAdmin'
+        message: 'Only SuperAdmin can perform direct deletion'
       });
     }
 
@@ -333,8 +331,7 @@ exports.directDelete = async (req, res) => {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: `Invalid section: ${section}`,
-        code: 'INVALID_SECTION'
+        message: `Invalid section: ${section}`
       });
     }
 
@@ -344,17 +341,23 @@ exports.directDelete = async (req, res) => {
       await transaction.rollback();
       return res.status(404).json({
         success: false,
-        message: 'Record not found',
-        code: 'RECORD_NOT_FOUND'
+        message: 'Record not found'
       });
     }
 
     const recordData = buildRecordSnapshot(record);
     const recordTitle = getRecordTitle(recordData);
 
-    // Archive instead of hard delete (recommended for audit trails)
+    // 🔥 FIX: ARCHIVE WITH TRANSACTION
+    await archiveRecord({
+      record,
+      module: normalizedSection,
+      deletedBy: userId,
+      requestedBy: null,
+      transaction   // ✅ added
+    });
+
     if (archive && Object.prototype.hasOwnProperty.call(record, 'is_deleted')) {
-      // Soft delete if model supports it
       await record.update({
         is_deleted: true,
         deleted_at: new Date(),
@@ -362,7 +365,6 @@ exports.directDelete = async (req, res) => {
         deletion_reason: reason || 'Direct deletion by SuperAdmin'
       }, { transaction });
     } else {
-      // Hard delete only if explicitly requested or no soft delete support
       await record.destroy({ transaction });
     }
 
@@ -375,7 +377,6 @@ exports.directDelete = async (req, res) => {
       newData: {
         deleted: true,
         deleted_by: req.user.username,
-        deletion_method: archive ? 'soft_delete' : 'hard_delete',
         reason: reason || 'No reason provided'
       },
       description: `SuperAdmin directly deleted ${getSectionLabel(normalizedSection)} "${recordTitle}"`,
@@ -386,23 +387,15 @@ exports.directDelete = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Record "${recordTitle}" has been ${archive ? 'archived' : 'permanently deleted'}`,
-      data: {
-        section: normalizedSection,
-        record_id,
-        deletion_method: archive ? 'soft_delete' : 'hard_delete',
-        deleted_by: req.user.username,
-        deleted_at: new Date()
-      }
+      message: `Record "${recordTitle}" deleted successfully`
     });
 
   } catch (error) {
     await transaction.rollback();
-    console.error('Direct delete error:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting record',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      error: error.message
     });
   }
 };
@@ -496,7 +489,6 @@ exports.approveRequest = async (req, res) => {
     const userRole = req.user.role;
     const userId = req.user.id;
 
-    // SECURITY CHECK 1: Only SuperAdmin can approve
     if (!canApproveReject(userRole)) {
       await transaction.rollback();
       return res.status(403).json({
@@ -530,14 +522,12 @@ exports.approveRequest = async (req, res) => {
       });
     }
 
-    // SECURITY CHECK 2: Prevent self-approval (even though SuperAdmin shouldn't create requests)
     if (isSelfReview(request.requested_by, userId)) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: 'You cannot approve your own delete request',
-        code: 'SELF_APPROVAL_BLOCKED',
-        note: 'This should not happen as SuperAdmin cannot create requests'
+        code: 'SELF_APPROVAL_BLOCKED'
       });
     }
 
@@ -551,7 +541,6 @@ exports.approveRequest = async (req, res) => {
     const record = await Model.findByPk(request.record_id, { transaction });
 
     if (!record) {
-      // Mark request as failed if record doesn't exist
       await request.update({
         status: 'failed',
         reviewed_by: userId,
@@ -562,21 +551,28 @@ exports.approveRequest = async (req, res) => {
       await transaction.commit();
       return res.status(404).json({
         success: false,
-        message: 'Record not found - request marked as failed',
-        code: 'RECORD_NOT_FOUND'
+        message: 'Record not found - request marked as failed'
       });
     }
 
     const oldRequestData = buildRequestSnapshot(request);
     const recordData = buildRecordSnapshot(record);
 
-    // Soft delete the record
+    // 🔥 FIX: ARCHIVE WITH TRANSACTION
+    await archiveRecord({
+      record,
+      module: normalizedSection,
+      deletedBy: userId,
+      requestedBy: request.requested_by,
+      transaction   // ✅ added
+    });
+
     if (Object.prototype.hasOwnProperty.call(record, 'is_deleted')) {
       await record.update({
         is_deleted: true,
         deleted_at: new Date(),
-        deleted_by: request.requested_by, // Track who requested it
-        deletion_approved_by: userId,     // Track who approved it
+        deleted_by: request.requested_by,
+        deletion_approved_by: userId,
         deletion_reason: request.reason
       }, { transaction });
     } else {
@@ -599,16 +595,12 @@ exports.approveRequest = async (req, res) => {
       action: 'DELETE_APPROVE',
       module: normalizedSection,
       recordId: request.record_id,
-      oldData: {
-        request: oldRequestData,
-        record: recordData
-      },
+      oldData: { request: oldRequestData, record: recordData },
       newData: {
         request: newRequestData,
         approved_by: req.user.username,
         requested_by: request.requester?.username || null,
-        deleted: true,
-        deletion_method: Object.prototype.hasOwnProperty.call(record, 'is_deleted') ? 'soft_delete' : 'hard_delete'
+        deleted: true
       },
       description: `Approved delete request for ${getSectionLabel(normalizedSection)} "${recordTitle}"`,
       transaction
@@ -624,11 +616,10 @@ exports.approveRequest = async (req, res) => {
 
   } catch (error) {
     await transaction.rollback();
-    console.error('Approve request error:', error);
     res.status(500).json({
       success: false,
       message: 'Error approving request',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      error: error.message
     });
   }
 };

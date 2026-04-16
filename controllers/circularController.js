@@ -2,11 +2,11 @@ const { Circular } = require('../models');
 const { Op } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
+const logAudit = require('../utils/auditLogger');
 
 // CREATE CIRCULAR
 exports.createCircular = async (req, res) => {
   try {
-
     const { title, date } = req.body;
 
     if (!title || !date) {
@@ -31,6 +31,16 @@ exports.createCircular = async (req, res) => {
       pdf_url
     });
 
+    // 🔥 ADD AUDIT
+    await logAudit({
+      req,
+      action: "CREATE",
+      module: "circulars",
+      recordId: circular.id,
+      newData: circular.toJSON(),
+      description: `Created circular "${circular.title}"`
+    });
+
     res.status(201).json({
       success: true,
       message: "Circular created successfully",
@@ -38,13 +48,11 @@ exports.createCircular = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: "Error creating circular",
       error: error.message
     });
-
   }
 };
 // GET ALL CIRCULARS (Pagination + Search)
@@ -99,11 +107,8 @@ exports.getAllCirculars = async (req, res) => {
 };
 // UPDATE CIRCULAR
 exports.updateCircular = async (req, res) => {
-
   try {
-
     const { id } = req.params;
-
     const { title, date } = req.body;
 
     const circular = await Circular.findByPk(id);
@@ -115,12 +120,11 @@ exports.updateCircular = async (req, res) => {
       });
     }
 
+    const oldData = circular.toJSON(); // 🔥 capture before update
+
     let pdf_url = circular.pdf_url;
 
-    // If new PDF uploaded
     if (req.file) {
-
-      // Delete old PDF
       const oldFilePath = path.join(__dirname, '..', circular.pdf_url);
 
       if (fs.existsSync(oldFilePath)) {
@@ -136,6 +140,17 @@ exports.updateCircular = async (req, res) => {
       pdf_url
     });
 
+    // 🔥 ADD AUDIT
+    await logAudit({
+      req,
+      action: "UPDATE",
+      module: "circulars",
+      recordId: circular.id,
+      oldData,
+      newData: circular.toJSON(),
+      description: `Updated circular "${circular.title}"`
+    });
+
     res.json({
       success: true,
       message: "Circular updated successfully",
@@ -143,69 +158,67 @@ exports.updateCircular = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: "Error updating circular",
       error: error.message
     });
-
   }
 };
-// DELETE CIRCULAR
-exports.deleteCircular = async (req, res) => {
-  try {
-    // 🔥 BLOCK EXECUTIVE DIRECT DELETE
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({
-        success: false,
-        message: "You cannot delete directly. Raise a delete request."
-      });
-    }
+// // DELETE CIRCULAR
+// exports.deleteCircular = async (req, res) => {
+//   try {
+//     // 🔥 BLOCK EXECUTIVE DIRECT DELETE
+//     if (req.user.role !== 'super_admin') {
+//       return res.status(403).json({
+//         success: false,
+//         message: "You cannot delete directly. Raise a delete request."
+//       });
+//     }
 
-    const { id } = req.params;
+//     const { id } = req.params;
 
-    const circular = await Circular.findByPk(id);
+//     const circular = await Circular.findByPk(id);
 
-    if (!circular) {
-      return res.status(404).json({
-        success: false,
-        message: "Circular not found"
-      });
-    }
+//     if (!circular) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Circular not found"
+//       });
+//     }
 
-    // 🔥 SAFE FILE PATH FIX
-    const filePath = path.join(
-      __dirname,
-      '..',
-      'uploads',
-      'circulars',
-      path.basename(circular.pdf_url || '')
-    );
+//     // 🔥 SAFE FILE PATH FIX
+//     const filePath = path.join(
+//       __dirname,
+//       '..',
+//       'uploads',
+//       'circulars',
+//       path.basename(circular.pdf_url || '')
+//     );
 
-    // 🔥 SAFE FILE DELETE
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    } catch (fileErr) {
-      console.error("File delete error:", fileErr);
-    }
+//     // 🔥 SAFE FILE DELETE
+//     try {
+//       if (fs.existsSync(filePath)) {
+//         fs.unlinkSync(filePath);
+//       }
+//     } catch (fileErr) {
+//       console.error("File delete error:", fileErr);
+//     }
 
-    // 🔥 DELETE RECORD
-    await circular.destroy();
+//     // 🔥 DELETE RECORD
+//     await circular.destroy();
 
-    res.json({
-      success: true,
-      message: "Circular deleted successfully"
-    });
+//     res.json({
+//       success: true,
+//       message: "Circular deleted successfully"
+//     });
 
-  } catch (error) {
-    console.error("Delete Circular Error:", error);
+//   } catch (error) {
+//     console.error("Delete Circular Error:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Error deleting circular"
-    });
-  }
-};
+//     res.status(500).json({
+//       success: false,
+//       message: "Error deleting circular"
+//     });
+//   }
+// };

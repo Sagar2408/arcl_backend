@@ -45,14 +45,14 @@ router.put(
 );
 
 
-// Delete master circular
-router.delete(
-  '/:id',
-  authMiddleware,
-  checkPermission('master_circulars', 'delete'),
-  idParamValidation,
-  masterCircularController.deleteMasterCircular
-);
+// // Delete master circular
+// router.delete(
+//   '/:id',
+//   authMiddleware,
+//   checkPermission('master_circulars', 'delete'),
+//   idParamValidation,
+//   masterCircularController.deleteMasterCircular
+// );
 
 
 module.exports = router;

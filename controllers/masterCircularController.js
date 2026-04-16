@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createMasterCircular = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(circular, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: circular.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: circular.toJSON(),
+      description: `Created master circular "${circular.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateMasterCircular = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(circular, SNAPSHOT_FIELDS);
+    const oldData = circular.toJSON();
     let pdf_url = circular.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateMasterCircular = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(circular, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: circular.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated master circular "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: circular.toJSON(),
+      description: `Updated master circular "${circular.title || 'record'}"`
     });
 
     res.json({
@@ -182,51 +162,51 @@ exports.updateMasterCircular = async (req, res) => {
   }
 };
 
-// DELETE MASTER CIRCULAR
-exports.deleteMasterCircular = async (req, res) => {
-  try {
-    const { id } = req.params;
+// // DELETE MASTER CIRCULAR
+// exports.deleteMasterCircular = async (req, res) => {
+//   try {
+//     const { id } = req.params;
 
-    const circular = await MasterCircular.findByPk(id);
+//     const circular = await MasterCircular.findByPk(id);
 
-    if (!circular) {
-      return res.status(404).json({
-        success: false,
-        message: 'Master Circular not found'
-      });
-    }
+//     if (!circular) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Master Circular not found'
+//       });
+//     }
 
-    const oldData = buildSnapshot(circular, SNAPSHOT_FIELDS);
-    const filePath = path.join(__dirname, '..', circular.pdf_url);
+//     const oldData = buildSnapshot(circular, SNAPSHOT_FIELDS);
+//     const filePath = path.join(__dirname, '..', circular.pdf_url);
 
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+//     if (fs.existsSync(filePath)) {
+//       fs.unlinkSync(filePath);
+//     }
 
-    await circular.destroy();
+//     await circular.destroy();
 
-    await logAudit({
-      req,
-      action: 'DELETE_APPROVE',
-      module: MODULE_NAME,
-      recordId: circular.id,
-      oldData,
-      description: buildDeleteDescription({
-        entityLabel: ENTITY_LABEL,
-        title: oldData.title
-      })
-    });
+//     await logAudit({
+//       req,
+//       action: 'DELETE_APPROVE',
+//       module: MODULE_NAME,
+//       recordId: circular.id,
+//       oldData,
+//       description: buildDeleteDescription({
+//         entityLabel: ENTITY_LABEL,
+//         title: oldData.title
+//       })
+//     });
 
-    res.json({
-      success: true,
-      message: 'Master Circular deleted successfully'
-    });
+//     res.json({
+//       success: true,
+//       message: 'Master Circular deleted successfully'
+//     });
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting master circular',
-      error: error.message
-    });
-  }
-};
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error deleting master circular',
+//       error: error.message
+//     });
+//   }
+// };

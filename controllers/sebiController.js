@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createSEBI = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: sebi.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: sebi.toJSON(),
+      description: `Created SEBI circular "${sebi.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateSEBI = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
+    const oldData = sebi.toJSON();
     let pdf_url = sebi.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateSEBI = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(sebi, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: sebi.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated SEBI circular "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: sebi.toJSON(),
+      description: `Updated SEBI circular "${sebi.title || 'record'}"`
     });
 
     res.json({

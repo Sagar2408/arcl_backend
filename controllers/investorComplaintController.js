@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createInvestorComplaint = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(complaint, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: complaint.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: complaint.toJSON(),
+      description: `Created investor complaint "${complaint.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateInvestorComplaint = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(complaint, SNAPSHOT_FIELDS);
+    const oldData = complaint.toJSON();
     let pdf_url = complaint.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateInvestorComplaint = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(complaint, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: complaint.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated investor complaint "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: complaint.toJSON(),
+      description: `Updated investor complaint "${complaint.title || 'record'}"`
     });
 
     res.json({

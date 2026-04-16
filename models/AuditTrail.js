@@ -22,14 +22,21 @@ const AuditTrail = sequelize.define('AuditTrail', {
     type: DataTypes.ENUM(
       'LOGIN',
       'LOGOUT',
+
+      // CRUD
       'CREATE',
       'UPDATE',
+
+      // Delete flows
       'DELETE_REQUEST',
       'DELETE_APPROVE',
       'DELETE_REJECT',
+      'DIRECT_DELETE',   // 🔥 ADD THIS
+
+      // Other
       'VIEW',
-      'PERMISSION_UPDATE',   // 🔥 NEW (important)
-      'RESET_PASSWORD'       // 🔥 NEW (important)
+      'PERMISSION_UPDATE',
+      'RESET_PASSWORD'
     ),
     allowNull: false
   },

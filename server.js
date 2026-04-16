@@ -27,6 +27,7 @@ const financialStatementRoutes = require('./routes/financialStatements');
 const userRoutes = require('./routes/users');
 const auditRoutes = require('./routes/audit');
 const deleteRequestRoutes = require('./routes/deleteRequests');
+const archiveRoutes = require('./routes/archive');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -94,6 +95,7 @@ app.use('/api/financial-statements', financialStatementRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/delete-requests', deleteRequestRoutes);
+app.use('/api/archives', archiveRoutes);
 
 // 404 handler
 app.use((req, res) => {

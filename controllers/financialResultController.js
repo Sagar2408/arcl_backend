@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createFinancialResult = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: financialResult.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: financialResult.toJSON(),
+      description: `Created financial result "${financialResult.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateFinancialResult = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
+    const oldData = financialResult.toJSON();
     let pdf_url = financialResult.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateFinancialResult = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(financialResult, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: financialResult.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated financial result "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: financialResult.toJSON(),
+      description: `Updated financial result "${financialResult.title || 'record'}"`
     });
 
     res.json({

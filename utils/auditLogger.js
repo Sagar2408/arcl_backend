@@ -12,6 +12,8 @@ const logAudit = async ({
   transaction = null
 }) => {
   try {
+    console.log("📊 AUDIT:", action, module);
+
     const payload = {
       user_id: userId ?? req?.user?.id ?? null,
       action,
@@ -27,8 +29,12 @@ const logAudit = async ({
     const options = transaction ? { transaction } : {};
 
     await AuditTrail.create(payload, options);
+
   } catch (err) {
-    console.error('Audit error:', err.message);
+    console.error("❌ AUDIT ERROR FULL:", err);
+
+    // 🔥 VERY IMPORTANT
+    throw err;  // ← THIS FIXES YOUR ISSUE
   }
 };
 

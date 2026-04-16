@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createPressRelease = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(pressRelease, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: pressRelease.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: pressRelease.toJSON(),
+      description: `Created press release "${pressRelease.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updatePressRelease = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(pressRelease, SNAPSHOT_FIELDS);
+    const oldData = pressRelease.toJSON();
     let pdf_url = pressRelease.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updatePressRelease = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(pressRelease, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: pressRelease.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated press release "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: pressRelease.toJSON(),
+      description: `Updated press release "${pressRelease.title || 'record'}"`
     });
 
     res.json({

@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createNewspaperPublication = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(newspaperPublication, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: newspaperPublication.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: newspaperPublication.toJSON(),
+      description: `Created newspaper publication "${newspaperPublication.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateNewspaperPublication = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(newspaperPublication, SNAPSHOT_FIELDS);
+    const oldData = newspaperPublication.toJSON();
     let pdf_url = newspaperPublication.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateNewspaperPublication = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(newspaperPublication, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: newspaperPublication.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated newspaper publication "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: newspaperPublication.toJSON(),
+      description: `Updated newspaper publication "${newspaperPublication.title || 'record'}"`
     });
 
     res.json({

@@ -240,7 +240,6 @@ module.exports = {
   circularValidation,
   announcementValidation,
   investorComplaintValidation,
-  shareholdingPatternValidation,
   financialValidation,
   pressReleaseValidation,
   dailyStatsValidation,

@@ -3,17 +3,12 @@ const { Op } = require('sequelize');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
 const MODULE_NAME = 'monthly_stats';
 const ENTITY_LABEL = 'monthly statistic';
 const SNAPSHOT_FIELDS = ['month', 'no_of_trades', 'trade_value'];
-
-const buildCreateMonthlyDescription = (data) => {
-  return `Created monthly statistic for month "${data.month}"`;
-};
 
 exports.createMonthlyStat = async (req, res) => {
   try {
@@ -25,15 +20,13 @@ exports.createMonthlyStat = async (req, res) => {
       trade_value
     });
 
-    const newData = buildSnapshot(stat, SNAPSHOT_FIELDS, { includeFileName: false });
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: stat.id,
-      newData,
-      description: buildCreateMonthlyDescription(newData)
+      newData: stat.toJSON(),
+      description: `Created monthly statistic "${stat.month || 'record'}"`
     });
 
     res.status(201).json({
@@ -118,7 +111,7 @@ exports.updateMonthlyStat = async (req, res) => {
       }
     }
 
-    const oldData = buildSnapshot(stat, SNAPSHOT_FIELDS, { includeFileName: false });
+    const oldData = stat.toJSON();
 
     await stat.update({
       month: month || stat.month,
@@ -126,27 +119,14 @@ exports.updateMonthlyStat = async (req, res) => {
       trade_value: trade_value !== undefined ? trade_value : stat.trade_value
     });
 
-    const newData = buildSnapshot(stat, SNAPSHOT_FIELDS, { includeFileName: false });
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: stat.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: SNAPSHOT_FIELDS,
-        labels: {
-          month: 'month',
-          no_of_trades: 'no_of_trades',
-          trade_value: 'trade_value'
-        },
-        fallback: `Updated monthly statistic "${newData.month || oldData.month || 'record'}"`
-      })
+      newData: stat.toJSON(),
+      description: `Updated monthly statistic "${stat.month || 'record'}"`
     });
 
     res.json({

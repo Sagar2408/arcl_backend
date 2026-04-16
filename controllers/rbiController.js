@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -41,18 +39,13 @@ exports.createRBI = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(rbi, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: rbi.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel: ENTITY_LABEL,
-        data: newData
-      })
+      newData: rbi.toJSON(),
+      description: `Created RBI circular "${rbi.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -125,7 +118,7 @@ exports.updateRBI = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(rbi, SNAPSHOT_FIELDS);
+    const oldData = rbi.toJSON();
     let pdf_url = rbi.pdf_url;
 
     if (req.file) {
@@ -144,27 +137,14 @@ exports.updateRBI = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(rbi, SNAPSHOT_FIELDS);
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: rbi.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: ['title', 'date'],
-        labels: {
-          title: 'title',
-          date: 'date'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated RBI circular "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: rbi.toJSON(),
+      description: `Updated RBI circular "${rbi.title || 'record'}"`
     });
 
     res.json({

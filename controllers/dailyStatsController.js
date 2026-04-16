@@ -5,17 +5,12 @@ const fs = require("fs");
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
 const MODULE_NAME = 'daily_stats';
 const ENTITY_LABEL = 'daily statistic';
 const SNAPSHOT_FIELDS = ['trade_date', 'no_of_trades', 'trade_value', 'fund_settlement_value'];
-
-const buildCreateDailyDescription = (data) => {
-  return `Created daily statistic for trade date "${data.trade_date}"`;
-};
 
 exports.createDailyStat = async (req, res) => {
   try {
@@ -28,15 +23,13 @@ exports.createDailyStat = async (req, res) => {
       fund_settlement_value
     });
 
-    const newData = buildSnapshot(stat, SNAPSHOT_FIELDS, { includeFileName: false });
-
     await logAudit({
       req,
       action: 'CREATE',
       module: MODULE_NAME,
       recordId: stat.id,
-      newData,
-      description: buildCreateDailyDescription(newData)
+      newData: stat.toJSON(),
+      description: `Created daily statistic "${stat.trade_date || 'record'}"`
     });
 
     res.status(201).json({
@@ -121,7 +114,7 @@ exports.updateDailyStat = async (req, res) => {
       }
     }
 
-    const oldData = buildSnapshot(stat, SNAPSHOT_FIELDS, { includeFileName: false });
+    const oldData = stat.toJSON();
 
     await stat.update({
       trade_date: trade_date || stat.trade_date,
@@ -130,28 +123,14 @@ exports.updateDailyStat = async (req, res) => {
       fund_settlement_value: fund_settlement_value !== undefined ? fund_settlement_value : stat.fund_settlement_value
     });
 
-    const newData = buildSnapshot(stat, SNAPSHOT_FIELDS, { includeFileName: false });
-
     await logAudit({
       req,
       action: 'UPDATE',
       module: MODULE_NAME,
       recordId: stat.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel: ENTITY_LABEL,
-        oldData,
-        newData,
-        fields: SNAPSHOT_FIELDS,
-        labels: {
-          trade_date: 'trade_date',
-          no_of_trades: 'no_of_trades',
-          trade_value: 'trade_value',
-          fund_settlement_value: 'fund_settlement_value'
-        },
-        fallback: `Updated daily statistic "${newData.trade_date || oldData.trade_date || 'record'}"`
-      })
+      newData: stat.toJSON(),
+      description: `Updated daily statistic "${stat.trade_date || 'record'}"`
     });
 
     res.json({

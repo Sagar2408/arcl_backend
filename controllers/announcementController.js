@@ -5,8 +5,6 @@ const path = require('path');
 const logAudit = require('../utils/auditLogger');
 const {
   buildSnapshot,
-  buildCreateDescription,
-  buildUpdateAuditDescription,
   buildDeleteDescription
 } = require('../utils/controllerAuditHelper');
 
@@ -56,21 +54,15 @@ exports.createAnnouncement = async (req, res) => {
       category
     });
 
-    const newData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
-    const moduleName = getAnnouncementModule(newData.category);
-    const entityLabel = getAnnouncementLabel(newData.category);
+    const moduleName = getAnnouncementModule(announcement.category);
 
     await logAudit({
       req,
       action: 'CREATE',
       module: moduleName,
       recordId: announcement.id,
-      newData,
-      description: buildCreateDescription({
-        entityLabel,
-        data: newData,
-        extraParts: newData.category ? [`Category: ${newData.category}`] : []
-      })
+      newData: announcement.toJSON(),
+      description: `Created announcement "${announcement.title || 'record'}"`
     });
 
     res.status(201).json({
@@ -156,7 +148,7 @@ exports.updateAnnouncement = async (req, res) => {
       });
     }
 
-    const oldData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
+    const oldData = announcement.toJSON();
     let pdf_url = announcement.pdf_url;
 
     if (req.file) {
@@ -178,9 +170,7 @@ exports.updateAnnouncement = async (req, res) => {
       pdf_url
     });
 
-    const newData = buildSnapshot(announcement, SNAPSHOT_FIELDS);
-    const moduleName = getAnnouncementModule(newData.category);
-    const entityLabel = getAnnouncementLabel(newData.category);
+    const moduleName = getAnnouncementModule(announcement.category);
 
     await logAudit({
       req,
@@ -188,20 +178,8 @@ exports.updateAnnouncement = async (req, res) => {
       module: moduleName,
       recordId: announcement.id,
       oldData,
-      newData,
-      description: buildUpdateAuditDescription({
-        entityLabel,
-        oldData,
-        newData,
-        fields: ['title', 'date', 'category'],
-        labels: {
-          title: 'title',
-          date: 'date',
-          category: 'category'
-        },
-        fileChanged: oldData.pdf_url !== newData.pdf_url,
-        fallback: `Updated announcement "${newData.title || oldData.title || 'record'}"`
-      })
+      newData: announcement.toJSON(),
+      description: `Updated announcement "${announcement.title || 'record'}"`
     });
 
     res.json({
