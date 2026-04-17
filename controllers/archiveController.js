@@ -1,6 +1,6 @@
-const { Archive } = require('../models');
+const { Archive, User } = require('../models');
 
-// 📦 GET ALL ARCHIVES
+// GET ALL ARCHIVES
 exports.getArchives = async (req, res) => {
   try {
     const { module } = req.query;
@@ -13,9 +13,26 @@ exports.getArchives = async (req, res) => {
       order: [['deleted_at', 'DESC']]
     });
 
+    // ✅ Fetch users (use username)
+    const users = await User.findAll({
+      attributes: ["id", "username"]
+    });
+
+    // ✅ Map IDs → usernames
+    const formatted = archives.map(item => {
+      const deletedUser = users.find(u => u.id === item.deleted_by);
+      const requestedUser = users.find(u => u.id === item.requested_by);
+
+      return {
+        ...item.toJSON(),
+        deleted_by: deletedUser?.username || "—",
+        requested_by: requestedUser?.username || "—"
+      };
+    });
+
     res.json({
       success: true,
-      data: archives
+      data: formatted
     });
 
   } catch (error) {
@@ -27,7 +44,7 @@ exports.getArchives = async (req, res) => {
   }
 };
 
-// 🔍 GET SINGLE ARCHIVE
+// GET SINGLE ARCHIVE
 exports.getArchiveById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -55,7 +72,7 @@ exports.getArchiveById = async (req, res) => {
   }
 };
 
-// 🗑 DELETE FROM ARCHIVE (PERMANENT)
+// DELETE FROM ARCHIVE (PERMANENT)
 exports.deleteArchive = async (req, res) => {
   try {
     const { id } = req.params;
@@ -98,7 +115,7 @@ exports.restoreArchive = async (req, res) => {
       });
     }
 
-    // 🔁 Model mapping
+    // Model mapping
     const {
       Announcement,
       Circular,
@@ -144,10 +161,10 @@ exports.restoreArchive = async (req, res) => {
       });
     }
 
-    // 🔁 Restore record
+    //  Restore record
     await Model.create(archive.data);
 
-    // ❌ Remove from archive
+    // Remove from archive
     await archive.destroy();
 
     res.json({
