@@ -144,90 +144,66 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Validate input
     if (!email || !password) {
       await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    // 2. Find user (❗ removed is_active filter)
     const user = await User.findOne({
       where: { email },
       include: [{ model: Permission, as: 'permissions' }]
     });
 
-    // 3. Check user exists
     if (!user) {
       await transaction.rollback();
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // 4. Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       await transaction.rollback();
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // 5. ❗ CHECK ACTIVE STATUS (MAIN FIX)
     if (!user.is_active) {
       await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been deactivated by admin'
-      });
+      return res.status(403).json({ success: false, message: 'Your account has been deactivated by admin' });
     }
-
-    // 6. Store previous login
-    const previousLastLogin = user.last_login;
-
-    // 7. Update last login
-    await user.update(
-      { last_login: new Date() },
-      { transaction }
+    const [rawResult] = await sequelize.query(
+      `SELECT last_login FROM users WHERE id = :userId LIMIT 1`,
+      {
+        replacements: { userId: user.id },
+        type: sequelize.QueryTypes.SELECT,
+        transaction
+      }
     );
+    const previousLastLogin = rawResult?.last_login ?? null;
+    const loginTime = new Date();
 
-    // 8. Audit log
+    const normalizedPreviousLogin = previousLastLogin
+      ? new Date(previousLastLogin.replace(' ', 'T') + 'Z').toISOString()
+      : null;
+    await user.update({ last_login: loginTime }, { transaction });
+
     await logAudit({
       req,
       userId: user.id,
       action: 'LOGIN',
       module: 'users',
       recordId: user.id,
-      oldData: previousLastLogin
-        ? { last_login: previousLastLogin }
+      oldData: normalizedPreviousLogin
+        ? { last_login: normalizedPreviousLogin }  // ✅ '2026-04-17T10:30:57.000Z'
         : null,
-      newData: {
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        is_active: user.is_active,
-        last_login: new Date()
-      },
+      newData: { last_login: loginTime.toISOString() }, // ✅ '2026-04-17T10:33:17.812Z'
       description: `User ${user.username} logged in`,
       transaction
     });
 
-    // 9. Commit transaction
     await transaction.commit();
 
-    // 10. Generate token & permissions
     const token = generateToken(user);
-    const permissions = formatPermissionsForResponse(
-      user.role,
-      user.permissions
-    );
+    const permissions = formatPermissionsForResponse(user.role, user.permissions);
 
-    // 11. Send response
     res.json({
       success: true,
       message: 'Login successful',
@@ -243,12 +219,8 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     await transaction.rollback();
-
-    res.status(500).json({
-      success: false,
-      message: 'Error during login',
-      error: error.message
-    });
+    console.error("LOGIN ERROR:", error);
+    res.status(500).json({ success: false, message: 'Error during login', error: error.message });
   }
 };
 
